@@ -7,7 +7,7 @@ Funciona em **Linux, Windows e macOS**. Licença [MIT](LICENSE).
 
 ## Downloads
 
-Baixe a versão mais recente em **[Releases](https://github.com/littlefarm7/clipforge/releases)** (ou na branch [`appimage`](https://github.com/littlefarm7/clipforge/tree/appimage)).
+Baixe a versão mais recente em **[Releases](https://github.com/littlefarm7/clipforge/releases)**.
 
 | Sistema | Arquivo |
 |---|---|
