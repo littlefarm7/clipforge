@@ -1,0 +1,15 @@
+ClipForge para Windows (64 bits)
+================================
+
+Como usar
+1. Extraia este .zip para uma pasta (por exemplo, Documentos\ClipForge).
+   Não rode direto de dentro do .zip.
+2. Dê dois cliques em ClipForge.exe.
+3. Se aparecer "O Windows protegeu o computador", clique em
+   "Mais informações" e depois em "Executar assim mesmo".
+   (O aviso aparece porque o programa não tem assinatura paga da Microsoft.)
+4. O navegador abre sozinho em http://127.0.0.1:7861
+5. Para fechar o ClipForge, use o botão "Sair" na página.
+
+Seus projetos e modelos ficam em %APPDATA%\clipforge
+Código-fonte: https://github.com/littlefarm7/clipforge

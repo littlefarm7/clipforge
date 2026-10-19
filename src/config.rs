@@ -44,6 +44,8 @@ pub struct Config {
     pub sub_position: String,
     pub sub_uppercase: bool,
     pub words_per_line: u32,
+    /// Título viral fixo na parte inferior do clipe
+    pub title_overlay: bool,
 
     /// 0 = automático
     pub threads: u32,
@@ -81,6 +83,7 @@ impl Default for Config {
             sub_position: "bottom".into(),
             sub_uppercase: true,
             words_per_line: 3,
+            title_overlay: true,
             threads: 0,
             ytdlp_args: String::new(),
         }
@@ -108,7 +111,10 @@ impl Config {
         if self.threads > 0 {
             self.threads
         } else {
-            std::thread::available_parallelism().map(|n| n.get() as u32).unwrap_or(4).clamp(1, 16)
+            std::thread::available_parallelism()
+                .map(|n| n.get() as u32)
+                .unwrap_or(4)
+                .clamp(1, 16)
         }
     }
 

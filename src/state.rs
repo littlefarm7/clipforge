@@ -74,23 +74,43 @@ impl std::ops::Deref for App {
 }
 
 pub fn now() -> u64 {
-    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
 }
 
 impl App {
     pub fn new(queue: mpsc::UnboundedSender<Job>) -> Self {
         let mut projects = HashMap::new();
-        for e in std::fs::read_dir(paths::projects_dir()).into_iter().flatten().flatten() {
+        for e in std::fs::read_dir(paths::projects_dir())
+            .into_iter()
+            .flatten()
+            .flatten()
+        {
             let p = e.path().join("project.json");
-            if let Some(mut pr) = std::fs::read_to_string(&p).ok().and_then(|s| serde_json::from_str::<Project>(&s).ok()) {
+            if let Some(mut pr) = std::fs::read_to_string(&p)
+                .ok()
+                .and_then(|s| serde_json::from_str::<Project>(&s).ok())
+            {
                 // Trabalhos interrompidos ao fechar o app
                 if pr.status == "running" || pr.status == "queued" {
                     pr.status = "error".into();
-                    pr.error = Some("Interrompido (o aplicativo foi fechado). Clique em \"Tentar de novo\".".into());
+                    pr.error = Some(
+                        "Interrompido (o aplicativo foi fechado). Clique em \"Tentar de novo\"."
+                            .into(),
+                    );
                 }
                 for c in pr.clips.iter_mut() {
                     if c.status == "rendering" || c.status == "pending" {
-                        c.status = if std::path::Path::new(&e.path().join(format!("{}.mp4", c.name))).is_file() { "done".into() } else { "error".into() };
+                        c.status =
+                            if std::path::Path::new(&e.path().join(format!("{}.mp4", c.name)))
+                                .is_file()
+                            {
+                                "done".into()
+                            } else {
+                                "error".into()
+                            };
                     }
                 }
                 projects.insert(pr.id.clone(), pr);
@@ -148,7 +168,12 @@ impl App {
     }
 
     pub fn cancel_token(&self, id: &str) -> CancellationToken {
-        self.cancels.lock().unwrap().entry(id.to_string()).or_default().clone()
+        self.cancels
+            .lock()
+            .unwrap()
+            .entry(id.to_string())
+            .or_default()
+            .clone()
     }
 
     pub fn cancel(&self, id: &str) {

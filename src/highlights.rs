@@ -1,9 +1,9 @@
 //! Escolha dos melhores trechos: IA (API/local) ou heurística sem IA.
 
 use crate::config::Config;
-use crate::llm::{extract_json, Llm};
+use crate::llm::{Llm, extract_json};
 use crate::transcribe::{Segment, Transcript};
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use serde_json::Value;
 use tokio_util::sync::CancellationToken;
 
@@ -26,7 +26,10 @@ fn user_prompt(cfg: &Config, lines: &str, n: usize) -> String {
     let extra = if cfg.extra_prompt.trim().is_empty() {
         String::new()
     } else {
-        format!("\nInstruções extras do usuário: {}\n", cfg.extra_prompt.trim())
+        format!(
+            "\nInstruções extras do usuário: {}\n",
+            cfg.extra_prompt.trim()
+        )
     };
     format!(
         "Transcrição (cada linha: [início-fim em segundos] texto):\n{lines}\n\n\
@@ -34,7 +37,8 @@ Escolha até {n} clipes. Regras:\n\
 - Cada clipe deve durar entre {min:.0} e {max:.0} segundos.\n\
 - \"start\" deve ser o início de uma linha e \"end\" o fim de uma linha, usando exatamente os números mostrados.\n\
 - Os clipes não podem se sobrepor.\n\
-- \"title\": título curto e chamativo (máx. 60 caracteres) no MESMO idioma da transcrição.\n\
+- \"title\": título viral em forma de gancho (máx. 55 caracteres), que desperte curiosidade sobre o assunto do clipe, \
+no MESMO idioma da transcrição. Ex.: \"Ninguém te conta isso sobre dinheiro\", \"O erro que quase acabou com tudo\". Sem hashtags nem emojis.\n\
 - \"score\": nota de 0 a 100 do potencial viral.\n\
 - \"reason\": uma frase curta explicando por que o trecho é bom.\n{extra}\n\
 Formato da resposta:\n\
@@ -53,7 +57,11 @@ fn parse_time(v: &Value) -> Option<f64> {
         return Some(f);
     }
     // Formatos mm:ss ou hh:mm:ss
-    let parts: Vec<f64> = s.split(':').map(|p| p.trim().parse::<f64>()).collect::<Result<_, _>>().ok()?;
+    let parts: Vec<f64> = s
+        .split(':')
+        .map(|p| p.trim().parse::<f64>())
+        .collect::<Result<_, _>>()
+        .ok()?;
     Some(parts.iter().fold(0.0, |acc, p| acc * 60.0 + p))
 }
 
@@ -61,19 +69,38 @@ fn parse_candidates(v: &Value) -> Vec<Candidate> {
     let arr = if let Some(a) = v.as_array() {
         a.clone()
     } else {
-        v.get("clips").or_else(|| v.get("clipes")).and_then(|c| c.as_array()).cloned().unwrap_or_default()
+        v.get("clips")
+            .or_else(|| v.get("clipes"))
+            .and_then(|c| c.as_array())
+            .cloned()
+            .unwrap_or_default()
     };
     arr.iter()
         .filter_map(|c| {
             let start = parse_time(c.get("start")?)?;
             let end = parse_time(c.get("end")?)?;
-            let score = c.get("score").and_then(|s| s.as_f64().or_else(|| s.as_str()?.parse().ok())).unwrap_or(50.0);
+            let score = c
+                .get("score")
+                .and_then(|s| s.as_f64().or_else(|| s.as_str()?.parse().ok()))
+                .unwrap_or(50.0);
             Some(Candidate {
                 start,
                 end,
-                title: c.get("title").and_then(|t| t.as_str()).unwrap_or("").trim().chars().take(90).collect(),
+                title: c
+                    .get("title")
+                    .and_then(|t| t.as_str())
+                    .unwrap_or("")
+                    .trim()
+                    .chars()
+                    .take(90)
+                    .collect(),
                 score: score.clamp(0.0, 100.0) as u32,
-                reason: c.get("reason").and_then(|t| t.as_str()).unwrap_or("").trim().to_string(),
+                reason: c
+                    .get("reason")
+                    .and_then(|t| t.as_str())
+                    .unwrap_or("")
+                    .trim()
+                    .to_string(),
             })
         })
         .filter(|c| c.end > c.start)
@@ -89,7 +116,11 @@ fn snap(c: &mut Candidate, segs: &[Segment], cfg: &Config) {
     let si = segs
         .iter()
         .enumerate()
-        .min_by(|a, b| (a.1.start - c.start).abs().total_cmp(&(b.1.start - c.start).abs()))
+        .min_by(|a, b| {
+            (a.1.start - c.start)
+                .abs()
+                .total_cmp(&(b.1.start - c.start).abs())
+        })
         .map(|x| x.0)
         .unwrap();
     let mut ei = segs
@@ -122,7 +153,7 @@ fn overlap(a: &Candidate, b: &Candidate) -> f64 {
 }
 
 fn pick(mut cands: Vec<Candidate>, max: usize) -> Vec<Candidate> {
-    cands.sort_by(|a, b| b.score.cmp(&a.score));
+    cands.sort_by_key(|c| std::cmp::Reverse(c.score));
     let mut out: Vec<Candidate> = Vec::new();
     for c in cands {
         if out.len() >= max {
@@ -161,14 +192,25 @@ pub async fn find(
     let llm = match cfg.llm_provider.as_str() {
         "none" | "" => None,
         _ => {
-            progress(0.0, if cfg.llm_provider == "local" { "Carregando modelo de IA local" } else { "Conectando à IA" });
+            progress(
+                0.0,
+                if cfg.llm_provider == "local" {
+                    "Carregando modelo de IA local"
+                } else {
+                    "Conectando à IA"
+                },
+            );
             Llm::from_config(cfg, cancel).await?
         }
     };
     let mut cands = match llm {
         Some(llm) => {
             // Divide a transcrição em blocos que cabem no contexto do modelo.
-            let chunk = if llm.is_local { (cfg.llm_ctx as f64 * 0.075).clamp(240.0, 1500.0) } else { 1500.0 };
+            let chunk = if llm.is_local {
+                (cfg.llm_ctx as f64 * 0.075).clamp(240.0, 1500.0)
+            } else {
+                1500.0
+            };
             let step = (chunk - cfg.max_len).max(chunk * 0.5);
             let mut windows = Vec::new();
             let mut w0 = 0.0;
@@ -179,14 +221,18 @@ pub async fn find(
                 }
                 w0 += step;
             }
-            let per = ((max as f64 * chunk / duration.max(1.0)).ceil() as usize + 1).clamp(2, max.max(2));
+            let per =
+                ((max as f64 * chunk / duration.max(1.0)).ceil() as usize + 1).clamp(2, max.max(2));
             let mut all = Vec::new();
             let mut errors = Vec::new();
             for (i, (a, b)) in windows.iter().enumerate() {
                 if cancel.is_cancelled() {
                     bail!("Cancelado");
                 }
-                progress(i as f32 / windows.len() as f32, &format!("Analisando com IA ({}/{})", i + 1, windows.len()));
+                progress(
+                    i as f32 / windows.len() as f32,
+                    &format!("Analisando com IA ({}/{})", i + 1, windows.len()),
+                );
                 let lines: Vec<String> = segs
                     .iter()
                     .filter(|s| s.start >= *a && s.start < *b)
@@ -236,8 +282,29 @@ pub async fn find(
 fn heuristic(cfg: &Config, segs: &[Segment], max: usize) -> Vec<Candidate> {
     let target = ((cfg.min_len + cfg.max_len) / 2.0).max(cfg.min_len);
     let hooks = [
-        "segredo", "verdade", "ninguém", "nunca", "sempre", "incrível", "imagina", "olha", "cuidado", "dica", "erro",
-        "secret", "never", "always", "truth", "nobody", "crazy", "imagine", "mistake", "why", "how", "porque", "como",
+        "segredo",
+        "verdade",
+        "ninguém",
+        "nunca",
+        "sempre",
+        "incrível",
+        "imagina",
+        "olha",
+        "cuidado",
+        "dica",
+        "erro",
+        "secret",
+        "never",
+        "always",
+        "truth",
+        "nobody",
+        "crazy",
+        "imagine",
+        "mistake",
+        "why",
+        "how",
+        "porque",
+        "como",
     ];
     let mut out = Vec::new();
     for i in 0..segs.len() {
@@ -249,7 +316,11 @@ fn heuristic(cfg: &Config, segs: &[Segment], max: usize) -> Vec<Candidate> {
         if dur < cfg.min_len * 0.8 || dur > cfg.max_len * 1.2 {
             continue;
         }
-        let text: String = segs[i..=j].iter().map(|s| s.text.as_str()).collect::<Vec<_>>().join(" ");
+        let text: String = segs[i..=j]
+            .iter()
+            .map(|s| s.text.as_str())
+            .collect::<Vec<_>>()
+            .join(" ");
         let lower = text.to_lowercase();
         let words = text.split_whitespace().count() as f64;
         let wps = words / dur.max(1.0);

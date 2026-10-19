@@ -3,7 +3,6 @@
 use crate::paths;
 use anyhow::Result;
 use std::path::Path;
-use tokio::process::Command;
 
 static MODEL: &[u8] = include_bytes!("../assets/seeta_fd_frontal_v1.0.bin");
 
@@ -11,13 +10,36 @@ static MODEL: &[u8] = include_bytes!("../assets/seeta_fd_frontal_v1.0.bin");
 pub const STEP: f64 = 0.5;
 
 /// Retorna, para cada amostra, o centro horizontal (0..1) do rosto principal.
-pub async fn track(src: &Path, start: f64, dur: f64, src_w: u32, src_h: u32) -> Result<Vec<Option<f64>>> {
+pub async fn track(
+    src: &Path,
+    start: f64,
+    dur: f64,
+    src_w: u32,
+    src_h: u32,
+) -> Result<Vec<Option<f64>>> {
     let w: u32 = 480;
-    let h: u32 = (((w as f64 * src_h as f64 / src_w.max(1) as f64) / 2.0).round() as u32 * 2).max(2);
-    let mut c = Command::new(paths::ffmpeg());
-    c.args(["-hide_banner", "-loglevel", "error", "-ss", &format!("{start:.3}"), "-t", &format!("{dur:.3}"), "-i"]);
+    let h: u32 =
+        (((w as f64 * src_h as f64 / src_w.max(1) as f64) / 2.0).round() as u32 * 2).max(2);
+    let mut c = crate::proc::command(paths::ffmpeg());
+    c.args([
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-ss",
+        &format!("{start:.3}"),
+        "-t",
+        &format!("{dur:.3}"),
+        "-i",
+    ]);
     c.arg(src);
-    c.args(["-an", "-vf", &format!("fps={},scale={w}:{h},format=gray", 1.0 / STEP), "-f", "rawvideo", "pipe:1"]);
+    c.args([
+        "-an",
+        "-vf",
+        &format!("fps={},scale={w}:{h},format=gray", 1.0 / STEP),
+        "-f",
+        "rawvideo",
+        "pipe:1",
+    ]);
     let raw = crate::proc::output(c).await?;
     let frame = (w * h) as usize;
     tokio::task::spawn_blocking(move || {
@@ -36,7 +58,9 @@ pub async fn track(src: &Path, start: f64, dur: f64, src_w: u32, src_h: u32) -> 
                 let sb = b.bbox().width() as f64 * b.bbox().height() as f64 * b.score().max(0.1);
                 sa.total_cmp(&sb)
             });
-            out.push(best.map(|b| (b.bbox().x() as f64 + b.bbox().width() as f64 / 2.0) / w as f64));
+            out.push(
+                best.map(|b| (b.bbox().x() as f64 + b.bbox().width() as f64 / 2.0) / w as f64),
+            );
         }
         Ok(out)
     })

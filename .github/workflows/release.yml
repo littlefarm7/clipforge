@@ -1,0 +1,42 @@
+# Gera os pacotes de Linux, Windows e macOS e publica uma Release quando uma tag v* é enviada.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ferramentas
+        run: |
+          pip install ziglang==0.13.0
+          cargo install --locked cargo-zigbuild
+          cargo install --locked apple-codesign --bin rcodesign
+          sudo apt-get update && sudo apt-get install -y zip
+
+      - name: Compilar pacotes
+        run: WORK=$RUNNER_TEMP/build ./packaging/build-all.sh
+
+      - name: Publicar release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/* --title "ClipForge $GITHUB_REF_NAME" --generate-notes \
+            || gh release upload "$GITHUB_REF_NAME" dist/* --clobber
+
+      - name: Guardar pacotes
+        if: "!startsWith(github.ref, 'refs/tags/')"
+        uses: actions/upload-artifact@v4
+        with:
+          name: clipforge-pacotes
+          path: dist/*

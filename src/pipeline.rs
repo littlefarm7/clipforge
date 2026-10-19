@@ -6,9 +6,8 @@ use crate::proc;
 use crate::render::{self, RenderJob};
 use crate::state::{App, Clip, Job};
 use crate::transcribe::{self, Transcript};
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use std::path::{Path, PathBuf};
-use tokio::process::Command;
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
@@ -37,8 +36,16 @@ pub async fn worker(app: App, mut rx: mpsc::UnboundedReceiver<Job>) {
             Err(e) => {
                 eprintln!("[{id}] erro: {e:#}");
                 app.update(&id, true, |p| {
-                    p.status = if cancelled { "cancelled".into() } else { "error".into() };
-                    p.error = Some(if cancelled { "Cancelado pelo usuário.".into() } else { format!("{e:#}") });
+                    p.status = if cancelled {
+                        "cancelled".into()
+                    } else {
+                        "error".into()
+                    };
+                    p.error = Some(if cancelled {
+                        "Cancelado pelo usuário.".into()
+                    } else {
+                        format!("{e:#}")
+                    });
                     for c in p.clips.iter_mut() {
                         if c.status == "rendering" || c.status == "pending" {
                             c.status = "error".into();
@@ -59,18 +66,27 @@ fn stage(app: &App, id: &str, stage: &str, progress: f32) {
 }
 
 pub fn find_source(dir: &Path) -> Option<PathBuf> {
-    std::fs::read_dir(dir).ok()?.flatten().map(|e| e.path()).find(|p| {
-        let n = p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-        // Ignora metadados e arquivos intermediários do yt-dlp (source.f137.mp4, .part...)
-        let parts: Vec<&str> = n.split('.').collect();
-        let intermediate = parts.len() > 2 && parts[1].starts_with('f') && parts[1][1..].chars().all(|c| c.is_ascii_digit());
-        n.starts_with("source.")
-            && !intermediate
-            && !n.ends_with(".json")
-            && !n.ends_with(".part")
-            && !n.ends_with(".ytdl")
-            && !n.ends_with(".upload")
-    })
+    std::fs::read_dir(dir)
+        .ok()?
+        .flatten()
+        .map(|e| e.path())
+        .find(|p| {
+            let n = p
+                .file_name()
+                .map(|n| n.to_string_lossy().into_owned())
+                .unwrap_or_default();
+            // Ignora metadados e arquivos intermediários do yt-dlp (source.f137.mp4, .part...)
+            let parts: Vec<&str> = n.split('.').collect();
+            let intermediate = parts.len() > 2
+                && parts[1].starts_with('f')
+                && parts[1][1..].chars().all(|c| c.is_ascii_digit());
+            n.starts_with("source.")
+                && !intermediate
+                && !n.ends_with(".json")
+                && !n.ends_with(".part")
+                && !n.ends_with(".ytdl")
+                && !n.ends_with(".upload")
+        })
 }
 
 /// Divide argumentos respeitando aspas simples e duplas.
@@ -102,29 +118,63 @@ fn split_args(s: &str) -> Vec<String> {
     out
 }
 
-async fn download(app: &App, id: &str, url: &str, dir: &Path, cancel: &CancellationToken) -> Result<PathBuf> {
+async fn download(
+    app: &App,
+    id: &str,
+    url: &str,
+    dir: &Path,
+    cancel: &CancellationToken,
+) -> Result<PathBuf> {
     stage(app, id, "Baixando vídeo", 0.0);
     let cfg = app.config();
     let height = if cfg.quality == "720" { 720 } else { 1080 };
-    let mut c = Command::new(paths::ytdlp());
+    let mut c = crate::proc::command(paths::ytdlp());
     c.current_dir(dir);
-    c.args(["--newline", "--no-playlist", "--no-mtime", "--write-info-json", "--restrict-filenames"]);
-    c.args(["-f", &format!("bv*[height<={height}]+ba/b[height<={height}]/bv*+ba/b")]);
+    c.args([
+        "--newline",
+        "--no-playlist",
+        "--no-mtime",
+        "--write-info-json",
+        "--restrict-filenames",
+    ]);
+    c.args([
+        "-f",
+        &format!("bv*[height<={height}]+ba/b[height<={height}]/bv*+ba/b"),
+    ]);
     c.args(["--merge-output-format", "mp4", "-o", "source.%(ext)s"]);
     c.arg("--ffmpeg-location").arg(paths::ffmpeg());
     c.args(split_args(&cfg.ytdlp_args));
+    // O deno embutido resolve os desafios JavaScript do YouTube; precisa estar no PATH
+    if let Some(dir) = paths::bundled_bin_dir() {
+        let mut dirs = vec![dir];
+        dirs.extend(std::env::split_paths(
+            &std::env::var_os("PATH").unwrap_or_default(),
+        ));
+        if let Ok(p) = std::env::join_paths(dirs) {
+            c.env("PATH", p);
+        }
+    }
     c.arg("--").arg(url);
     let mut part = 0;
     let mut last = 0.0f32;
     proc::run(c, cancel, |line| {
         if let Some(rest) = line.strip_prefix("[download]") {
-            if let Some(pct) = rest.split_whitespace().next().and_then(|s| s.strip_suffix('%')).and_then(|s| s.parse::<f32>().ok()) {
+            if let Some(pct) = rest
+                .split_whitespace()
+                .next()
+                .and_then(|s| s.strip_suffix('%'))
+                .and_then(|s| s.parse::<f32>().ok())
+            {
                 let pct = pct / 100.0;
                 if pct + 0.2 < last {
                     part += 1; // segunda parte (áudio)
                 }
                 last = pct;
-                let label = if part == 0 { "Baixando vídeo" } else { "Baixando áudio" };
+                let label = if part == 0 {
+                    "Baixando vídeo"
+                } else {
+                    "Baixando áudio"
+                };
                 stage(app, id, label, pct);
             }
         } else if line.starts_with("[Merger]") {
@@ -132,14 +182,15 @@ async fn download(app: &App, id: &str, url: &str, dir: &Path, cancel: &Cancellat
         }
     })
     .await
-    .context("não foi possível baixar o vídeo. Tente atualizar o yt-dlp em Configurações → Sistema")?;
-    if let Ok(s) = std::fs::read_to_string(dir.join("source.info.json")) {
-        if let Ok(v) = serde_json::from_str::<serde_json::Value>(&s) {
-            if let Some(t) = v["title"].as_str() {
-                let t = t.to_string();
-                app.update(id, true, |p| p.title = t);
-            }
-        }
+    .context(
+        "não foi possível baixar o vídeo. Tente atualizar o yt-dlp em Configurações → Sistema",
+    )?;
+    if let Ok(s) = std::fs::read_to_string(dir.join("source.info.json"))
+        && let Ok(v) = serde_json::from_str::<serde_json::Value>(&s)
+        && let Some(t) = v["title"].as_str()
+    {
+        let t = t.to_string();
+        app.update(id, true, |p| p.title = t);
     }
     find_source(dir).context("arquivo baixado não encontrado")
 }
@@ -165,7 +216,9 @@ async fn run_full(app: &App, id: &str, cancel: &CancellationToken) -> Result<()>
             }
         }
     };
-    let info = proc::probe(&src).await.context("não foi possível ler o vídeo")?;
+    let info = proc::probe(&src)
+        .await
+        .context("não foi possível ler o vídeo")?;
     if info.duration <= 1.0 {
         bail!("o vídeo é muito curto ou não pôde ser lido");
     }
@@ -173,11 +226,18 @@ async fn run_full(app: &App, id: &str, cancel: &CancellationToken) -> Result<()>
 
     // 2. Transcrição (reaproveitada se já existir)
     let tpath = dir.join("transcript.json");
-    let transcript: Transcript = match tokio::fs::read(&tpath).await.ok().and_then(|b| serde_json::from_slice(&b).ok()) {
+    let transcript: Transcript = match tokio::fs::read(&tpath)
+        .await
+        .ok()
+        .and_then(|b| serde_json::from_slice(&b).ok())
+    {
         Some(t) => t,
         None => {
             stage(app, id, "Transcrevendo", 0.0);
-            let t = transcribe::transcribe(&cfg, &src, &dir, cancel, |pr, label| stage(app, id, label, pr)).await?;
+            let t = transcribe::transcribe(&cfg, &src, &dir, cancel, |pr, label| {
+                stage(app, id, label, pr)
+            })
+            .await?;
             if t.words.is_empty() {
                 bail!("nenhuma fala detectada no vídeo");
             }
@@ -190,7 +250,10 @@ async fn run_full(app: &App, id: &str, cancel: &CancellationToken) -> Result<()>
 
     // 3. Melhores trechos
     stage(app, id, "Analisando", 0.0);
-    let cands = highlights::find(&cfg, &transcript, info.duration, cancel, |pr, label| stage(app, id, label, pr)).await?;
+    let cands = highlights::find(&cfg, &transcript, info.duration, cancel, |pr, label| {
+        stage(app, id, label, pr)
+    })
+    .await?;
     if cands.is_empty() {
         bail!("nenhum trecho adequado foi encontrado (tente diminuir a duração mínima)");
     }
@@ -225,7 +288,18 @@ async fn run_full(app: &App, id: &str, cancel: &CancellationToken) -> Result<()>
         if cancel.is_cancelled() {
             bail!("Cancelado");
         }
-        render_one(app, id, i as u32, &src, &info, &transcript, &dir, cancel, Some((i, n))).await?;
+        render_one(
+            app,
+            id,
+            i as u32,
+            &src,
+            &info,
+            &transcript,
+            &dir,
+            cancel,
+            Some((i, n)),
+        )
+        .await?;
     }
     Ok(())
 }
@@ -243,7 +317,10 @@ async fn render_one(
     batch: Option<(usize, usize)>,
 ) -> Result<()> {
     let cfg = app.config();
-    let clip = app.get(id).and_then(|p| p.clips.into_iter().find(|c| c.index == idx)).context("clipe não encontrado")?;
+    let clip = app
+        .get(id)
+        .and_then(|p| p.clips.into_iter().find(|c| c.index == idx))
+        .context("clipe não encontrado")?;
     let label = match batch {
         Some((i, n)) => format!("Gerando clipe {}/{}", i + 1, n),
         None => format!("Renderizando clipe {}", idx + 1),
@@ -260,8 +337,23 @@ async fn render_one(
         c.progress = 0.0;
         c.error = None;
     });
-    stage(app, id, &label, batch.map(|(i, n)| i as f32 / n as f32).unwrap_or(0.0));
-    let job = RenderJob { cfg: &cfg, src, info, transcript, work: dir, name: &clip.name, start: clip.start, end: clip.end };
+    stage(
+        app,
+        id,
+        &label,
+        batch.map(|(i, n)| i as f32 / n as f32).unwrap_or(0.0),
+    );
+    let job = RenderJob {
+        cfg: &cfg,
+        src,
+        info,
+        transcript,
+        work: dir,
+        name: &clip.name,
+        title: &clip.title,
+        start: clip.start,
+        end: clip.end,
+    };
     let res = render::render(job, cancel, |pr| {
         set_clip(&|c| c.progress = pr);
         let total = match batch {
@@ -313,8 +405,12 @@ async fn run_clip(app: &App, id: &str, idx: u32, cancel: &CancellationToken) -> 
         .and_then(|b| serde_json::from_slice(&b).ok())
         .unwrap_or_default();
     let text = transcript.text_between(
-        app.get(id).and_then(|p| p.clips.iter().find(|c| c.index == idx).map(|c| c.start)).unwrap_or(0.0),
-        app.get(id).and_then(|p| p.clips.iter().find(|c| c.index == idx).map(|c| c.end)).unwrap_or(0.0),
+        app.get(id)
+            .and_then(|p| p.clips.iter().find(|c| c.index == idx).map(|c| c.start))
+            .unwrap_or(0.0),
+        app.get(id)
+            .and_then(|p| p.clips.iter().find(|c| c.index == idx).map(|c| c.end))
+            .unwrap_or(0.0),
     );
     app.update(id, false, |p| {
         if let Some(c) = p.clips.iter_mut().find(|c| c.index == idx) {

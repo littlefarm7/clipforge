@@ -1,5 +1,8 @@
 //! ClipForge — gera clipes curtos e virais a partir de vídeos longos, 100% local.
 
+// No Windows o app roda sem janela de console (a interface é a página no navegador).
+#![cfg_attr(windows, windows_subsystem = "windows")]
+
 mod config;
 mod face;
 mod highlights;
@@ -13,19 +16,25 @@ mod state;
 mod transcribe;
 
 use axum::extract::{DefaultBodyLimit, Multipart, Path as AxPath, State};
-use axum::http::{header, StatusCode};
+use axum::http::{StatusCode, header};
 use axum::response::{Html, IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use config::Config;
 use serde::Deserialize;
-use serde_json::{json, Value};
-use state::{now, App, Job, Project};
+use serde_json::{Value, json};
+use state::{App, Job, Project, now};
 use tokio::io::AsyncWriteExt;
 
 pub static FONTS: &[(&str, &[u8])] = &[
-    ("Anton-Regular.ttf", include_bytes!("../assets/fonts/Anton-Regular.ttf")),
-    ("Poppins-Bold.ttf", include_bytes!("../assets/fonts/Poppins-Bold.ttf")),
+    (
+        "Anton-Regular.ttf",
+        include_bytes!("../assets/fonts/Anton-Regular.ttf"),
+    ),
+    (
+        "Poppins-Bold.ttf",
+        include_bytes!("../assets/fonts/Poppins-Bold.ttf"),
+    ),
 ];
 
 static INDEX: &str = include_str!("../assets/index.html");
@@ -36,7 +45,11 @@ struct ApiError(anyhow::Error);
 
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
-        (StatusCode::BAD_REQUEST, Json(json!({"error": format!("{:#}", self.0)}))).into_response()
+        (
+            StatusCode::BAD_REQUEST,
+            Json(json!({"error": format!("{:#}", self.0)})),
+        )
+            .into_response()
     }
 }
 
@@ -75,7 +88,15 @@ async fn api_new_project(State(app): State<App>, Json(req): Json<NewProject>) ->
         return Err(err("Cole um link válido (começando com https://)."));
     }
     let id = new_id();
-    app.insert(Project { id: id.clone(), title: url.clone(), source: url, created: now(), status: "queued".into(), stage: "Na fila".into(), ..Default::default() });
+    app.insert(Project {
+        id: id.clone(),
+        title: url.clone(),
+        source: url,
+        created: now(),
+        status: "queued".into(),
+        stage: "Na fila".into(),
+        ..Default::default()
+    });
     app.enqueue(Job::Full(id.clone()));
     Ok(Json(json!({"id": id})))
 }
@@ -102,8 +123,19 @@ async fn api_upload(State(app): State<App>, mut mp: Multipart) -> ApiResult {
         f.flush().await?;
         drop(f);
         tokio::fs::rename(&tmp, dir.join(format!("source.{ext}"))).await?;
-        let title = std::path::Path::new(&fname).file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or(fname.clone());
-        app.insert(Project { id: id.clone(), title, source: fname, created: now(), status: "queued".into(), stage: "Na fila".into(), ..Default::default() });
+        let title = std::path::Path::new(&fname)
+            .file_stem()
+            .map(|s| s.to_string_lossy().into_owned())
+            .unwrap_or(fname.clone());
+        app.insert(Project {
+            id: id.clone(),
+            title,
+            source: fname,
+            created: now(),
+            status: "queued".into(),
+            stage: "Na fila".into(),
+            ..Default::default()
+        });
         app.enqueue(Job::Full(id.clone()));
         return Ok(Json(json!({"id": id})));
     }
@@ -170,7 +202,11 @@ struct ClipEdit {
     title: Option<String>,
 }
 
-async fn api_clip_render(State(app): State<App>, AxPath((id, idx)): AxPath<(String, u32)>, Json(req): Json<ClipEdit>) -> ApiResult {
+async fn api_clip_render(
+    State(app): State<App>,
+    AxPath((id, idx)): AxPath<(String, u32)>,
+    Json(req): Json<ClipEdit>,
+) -> ApiResult {
     valid_id(&id)?;
     let p = app.get(&id).ok_or_else(|| err("projeto não encontrado"))?;
     if p.status == "running" || p.status == "queued" {
@@ -179,7 +215,11 @@ async fn api_clip_render(State(app): State<App>, AxPath((id, idx)): AxPath<(Stri
     if !(req.end > req.start && req.start >= 0.0) || req.end - req.start > 600.0 {
         return Err(err("tempos inválidos"));
     }
-    let end = if p.duration > 0.0 { req.end.min(p.duration) } else { req.end };
+    let end = if p.duration > 0.0 {
+        req.end.min(p.duration)
+    } else {
+        req.end
+    };
     app.update(&id, true, |p| {
         if let Some(c) = p.clips.iter_mut().find(|c| c.index == idx) {
             c.start = req.start;
@@ -210,8 +250,16 @@ async fn api_set_config(State(app): State<App>, Json(cfg): Json<Config>) -> ApiR
 
 async fn api_test_llm(Json(cfg): Json<Config>) -> ApiResult {
     let cancel = tokio_util::sync::CancellationToken::new();
-    let llm = llm::Llm::from_config(&cfg, &cancel).await?.ok_or_else(|| err("IA desativada (modo sem IA)"))?;
-    let r = llm.chat("Responda de forma curtíssima.", "Diga apenas: OK, estou funcionando.", false).await?;
+    let llm = llm::Llm::from_config(&cfg, &cancel)
+        .await?
+        .ok_or_else(|| err("IA desativada (modo sem IA)"))?;
+    let r = llm
+        .chat(
+            "Responda de forma curtíssima.",
+            "Diga apenas: OK, estou funcionando.",
+            false,
+        )
+        .await?;
     Ok(Json(json!({"reply": r})))
 }
 
@@ -229,7 +277,10 @@ async fn api_models(State(app): State<App>) -> Json<Value> {
                 j
             })
             .collect();
-        for (f, size) in inst.iter().filter(|(f, _)| !cat_files.contains(&f.as_str())) {
+        for (f, size) in inst
+            .iter()
+            .filter(|(f, _)| !cat_files.contains(&f.as_str()))
+        {
             v.push(json!({"id": f, "name": f, "file": f, "url": "", "size_mb": size / 1_000_000, "desc": "Modelo personalizado", "installed": true}));
         }
         v
@@ -250,10 +301,21 @@ struct DownloadReq {
 }
 
 async fn api_model_download(State(app): State<App>, Json(req): Json<DownloadReq>) -> ApiResult {
-    let kind = if req.kind == "whisper" { "whisper" } else { "llm" };
+    let kind = if req.kind == "whisper" {
+        "whisper"
+    } else {
+        "llm"
+    };
     let (url, file) = if let Some(id) = &req.id {
-        let cat = if kind == "whisper" { models::whisper_catalog() } else { models::llm_catalog() };
-        let m = cat.into_iter().find(|m| m.id == id).ok_or_else(|| err("modelo desconhecido"))?;
+        let cat = if kind == "whisper" {
+            models::whisper_catalog()
+        } else {
+            models::llm_catalog()
+        };
+        let m = cat
+            .into_iter()
+            .find(|m| m.id == id)
+            .ok_or_else(|| err("modelo desconhecido"))?;
         (m.url.to_string(), m.file.to_string())
     } else {
         let url = req.url.clone().unwrap_or_default().trim().to_string();
@@ -261,9 +323,17 @@ async fn api_model_download(State(app): State<App>, Json(req): Json<DownloadReq>
             return Err(err("informe um link https:// para o arquivo do modelo"));
         }
         let file = models::safe_file_name(&url)?;
-        let ok_ext = if kind == "whisper" { file.ends_with(".bin") } else { file.ends_with(".gguf") };
+        let ok_ext = if kind == "whisper" {
+            file.ends_with(".bin")
+        } else {
+            file.ends_with(".gguf")
+        };
         if !ok_ext {
-            return Err(err(if kind == "whisper" { "o arquivo deve terminar em .bin" } else { "o arquivo deve terminar em .gguf" }));
+            return Err(err(if kind == "whisper" {
+                "o arquivo deve terminar em .bin"
+            } else {
+                "o arquivo deve terminar em .gguf"
+            }));
         }
         (url, file)
     };
@@ -273,7 +343,14 @@ async fn api_model_download(State(app): State<App>, Json(req): Json<DownloadReq>
         if d.get(&key).is_some_and(|s| !s.done && s.error.is_none()) {
             return Err(err("este download já está em andamento"));
         }
-        d.insert(key.clone(), models::DownloadState { kind: kind.into(), file: file.clone(), ..Default::default() });
+        d.insert(
+            key.clone(),
+            models::DownloadState {
+                kind: kind.into(),
+                file: file.clone(),
+                ..Default::default()
+            },
+        );
     }
     let dest = models::dir_for(kind).join(&file);
     let app2 = app.clone();
@@ -305,25 +382,41 @@ struct DeleteModel {
 
 async fn api_model_delete(State(app): State<App>, Json(req): Json<DeleteModel>) -> ApiResult {
     let file = models::safe_file_name(&req.file)?;
-    let kind = if req.kind == "whisper" { "whisper" } else { "llm" };
+    let kind = if req.kind == "whisper" {
+        "whisper"
+    } else {
+        "llm"
+    };
     tokio::fs::remove_file(models::dir_for(kind).join(&file)).await?;
-    app.downloads.lock().unwrap().remove(&format!("{kind}/{file}"));
+    app.downloads
+        .lock()
+        .unwrap()
+        .remove(&format!("{kind}/{file}"));
     Ok(Json(json!({"ok": true})))
 }
 
 // ---------- Sistema ----------
 
 async fn tool_version(cmd: std::path::PathBuf, args: &[&str]) -> String {
-    let mut c = tokio::process::Command::new(&cmd);
+    let mut c = proc::command(&cmd);
     c.args(args);
     match tokio::time::timeout(std::time::Duration::from_secs(20), proc::output(c)).await {
-        Ok(Ok(out)) => String::from_utf8_lossy(&out).lines().next().unwrap_or("").chars().take(80).collect(),
+        Ok(Ok(out)) => String::from_utf8_lossy(&out)
+            .lines()
+            .next()
+            .unwrap_or("")
+            .chars()
+            .take(80)
+            .collect(),
         _ => "não encontrado".into(),
     }
 }
 
 async fn api_system() -> Json<Value> {
-    let (ff, yt) = tokio::join!(tool_version(paths::ffmpeg(), &["-version"]), tool_version(paths::ytdlp(), &["--version"]));
+    let (ff, yt) = tokio::join!(
+        tool_version(paths::ffmpeg(), &["-version"]),
+        tool_version(paths::ytdlp(), &["--version"])
+    );
     Json(json!({
         "version": env!("CARGO_PKG_VERSION"),
         "ffmpeg": ff,
@@ -337,11 +430,13 @@ async fn api_system() -> Json<Value> {
 }
 
 async fn api_ytdlp_update() -> ApiResult {
-    let bin = paths::user_bin_dir().join("yt-dlp");
+    let bin = paths::user_bin_dir().join(paths::exe("yt-dlp"));
     if !bin.is_file() {
-        return Err(err("yt-dlp não está na pasta do usuário; não é possível atualizar"));
+        return Err(err(
+            "yt-dlp não está na pasta do usuário; não é possível atualizar",
+        ));
     }
-    let mut c = tokio::process::Command::new(&bin);
+    let mut c = proc::command(&bin);
     c.arg("-U");
     let out = proc::output(c).await?;
     Ok(Json(json!({"output": String::from_utf8_lossy(&out)})))
@@ -349,7 +444,7 @@ async fn api_ytdlp_update() -> ApiResult {
 
 async fn api_open_folder(AxPath(id): AxPath<String>) -> ApiResult {
     valid_id(&id)?;
-    let _ = std::process::Command::new("xdg-open").arg(App::project_dir(&id)).spawn();
+    open_external(App::project_dir(&id).as_os_str());
     Ok(Json(json!({"ok": true})))
 }
 
@@ -362,25 +457,59 @@ async fn index() -> impl IntoResponse {
     ([(header::CACHE_CONTROL, "no-store")], Html(INDEX))
 }
 
-fn open_browser(url: &str) {
-    if std::env::var_os("CLIPFORGE_NO_BROWSER").is_some() {
-        return;
-    }
-    // Remove variáveis do AppImage que podem atrapalhar o navegador
-    let _ = std::process::Command::new("xdg-open")
-        .arg(url)
-        .env_remove("LD_LIBRARY_PATH")
-        .env_remove("APPIMAGE")
-        .env_remove("APPDIR")
+/// Abre um link ou pasta com o programa padrão do sistema.
+fn open_external(target: &std::ffi::OsStr) {
+    #[cfg(target_os = "windows")]
+    let mut c = {
+        let mut c = std::process::Command::new("explorer");
+        c.arg(target);
+        c
+    };
+    #[cfg(target_os = "macos")]
+    let mut c = {
+        let mut c = std::process::Command::new("open");
+        c.arg(target);
+        c
+    };
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    let mut c = {
+        let mut c = std::process::Command::new("xdg-open");
+        // Remove variáveis do AppImage que podem atrapalhar o navegador
+        c.arg(target)
+            .env_remove("LD_LIBRARY_PATH")
+            .env_remove("APPIMAGE")
+            .env_remove("APPDIR");
+        c
+    };
+    let _ = c
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
         .spawn();
 }
 
+fn open_browser(url: &str) {
+    if std::env::var_os("CLIPFORGE_NO_BROWSER").is_some() {
+        return;
+    }
+    open_external(std::ffi::OsStr::new(url));
+}
+
 async fn existing_instance() -> Option<u16> {
-    let port: u16 = std::fs::read_to_string(paths::data_dir().join("port")).ok()?.trim().parse().ok()?;
-    let c = reqwest::Client::builder().no_proxy().timeout(std::time::Duration::from_secs(2)).build().ok()?;
-    let r = c.get(format!("http://127.0.0.1:{port}/api/ping")).send().await.ok()?;
+    let port: u16 = std::fs::read_to_string(paths::data_dir().join("port"))
+        .ok()?
+        .trim()
+        .parse()
+        .ok()?;
+    let c = reqwest::Client::builder()
+        .no_proxy()
+        .timeout(std::time::Duration::from_secs(2))
+        .build()
+        .ok()?;
+    let r = c
+        .get(format!("http://127.0.0.1:{port}/api/ping"))
+        .send()
+        .await
+        .ok()?;
     (r.text().await.ok()? == "clipforge").then_some(port)
 }
 
@@ -410,7 +539,10 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/projects/{id}/retranscribe", post(api_retranscribe))
         .route("/api/projects/{id}/delete", post(api_delete))
         .route("/api/projects/{id}/open", post(api_open_folder))
-        .route("/api/projects/{id}/clips/{idx}/render", post(api_clip_render))
+        .route(
+            "/api/projects/{id}/clips/{idx}/render",
+            post(api_clip_render),
+        )
         .route("/api/config", get(api_get_config).post(api_set_config))
         .route("/api/test-llm", post(api_test_llm))
         .route("/api/models", get(api_models))
@@ -423,7 +555,9 @@ async fn main() -> anyhow::Result<()> {
         .layer(DefaultBodyLimit::disable())
         .with_state(app.clone());
 
-    let port_env: Option<u16> = std::env::var("CLIPFORGE_PORT").ok().and_then(|p| p.parse().ok());
+    let port_env: Option<u16> = std::env::var("CLIPFORGE_PORT")
+        .ok()
+        .and_then(|p| p.parse().ok());
     let mut listener = None;
     for port in port_env.into_iter().chain(7861..7900) {
         if let Ok(l) = tokio::net::TcpListener::bind(("127.0.0.1", port)).await {
@@ -431,7 +565,8 @@ async fn main() -> anyhow::Result<()> {
             break;
         }
     }
-    let listener = listener.ok_or_else(|| anyhow::anyhow!("nenhuma porta livre entre 7861 e 7899"))?;
+    let listener =
+        listener.ok_or_else(|| anyhow::anyhow!("nenhuma porta livre entre 7861 e 7899"))?;
     let port = listener.local_addr()?.port();
     let _ = std::fs::write(paths::data_dir().join("port"), port.to_string());
     let url = format!("http://127.0.0.1:{port}/");

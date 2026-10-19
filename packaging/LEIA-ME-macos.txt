@@ -1,0 +1,19 @@
+ClipForge para macOS
+====================
+
+Escolha o arquivo certo:
+- Mac com chip Apple (M1, M2, M3, M4...): ClipForge-*-macos-arm64.zip
+- Mac com processador Intel:              ClipForge-*-macos-x64.zip
+
+Requer macOS 12 ou mais novo (a IA local precisa do macOS 13.3 ou mais novo).
+
+Como usar
+1. Extraia o .zip e arraste ClipForge.app para a pasta Aplicativos.
+2. Como o app não tem assinatura paga da Apple, libere-o uma vez no Terminal:
+     xattr -dr com.apple.quarantine /Applications/ClipForge.app
+   (ou clique com o botão direito no app > Abrir > Abrir)
+3. Abra o ClipForge. O navegador abre sozinho em http://127.0.0.1:7861
+4. O app não aparece no Dock. Para fechar, use o botão "Sair" na página.
+
+Seus projetos e modelos ficam em ~/Library/Application Support/clipforge
+Código-fonte: https://github.com/littlefarm7/clipforge

@@ -1,14 +1,17 @@
 [package]
 name = "clipforge"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
+description = "Gerador de clipes curtos e virais a partir de vídeos longos, local e gratuito"
+license = "MIT"
+repository = "https://github.com/littlefarm7/clipforge"
 
 [dependencies]
 anyhow = "1.0.104"
 axum = { version = "0.8.9", features = ["multipart"] }
 dirs = "7.0.0"
 futures-util = "0.3.34"
-reqwest = { version = "0.12", default-features = false, features = ["rustls-tls-webpki-roots", "rustls-tls-native-roots", "json", "multipart", "stream", "http2"] }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls-webpki-roots", "json", "multipart", "stream", "http2"] }
 rustface = "0.1.7"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
@@ -16,6 +19,11 @@ tokio = { version = "1.53.3", features = ["full"] }
 tokio-util = { version = "0.7.20", features = ["io"] }
 tower-http = { version = "0.7.1", features = ["fs"] }
 uuid = { version = "1.28.0", features = ["v4"] }
+
+# Certificados do sistema (ex.: proxies corporativos). No macOS usa só os embutidos,
+# o que permite compilar a partir do Linux sem o SDK da Apple.
+[target.'cfg(not(target_os = "macos"))'.dependencies]
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls-native-roots"] }
 
 [profile.release]
 opt-level = 3

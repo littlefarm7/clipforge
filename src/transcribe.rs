@@ -3,10 +3,9 @@
 use crate::config::Config;
 use crate::paths;
 use crate::proc;
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
-use tokio::process::Command;
 use tokio_util::sync::CancellationToken;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -39,10 +38,18 @@ impl Transcript {
         let mut first = 0usize;
         for i in 0..self.words.len() {
             let w = &self.words[i];
-            let next_gap = self.words.get(i + 1).map(|n| n.start - w.end).unwrap_or(99.0);
+            let next_gap = self
+                .words
+                .get(i + 1)
+                .map(|n| n.start - w.end)
+                .unwrap_or(99.0);
             let punct = w.text.trim_end().ends_with(['.', '?', '!', '…']);
             let count = i - first + 1;
-            if punct || next_gap > 0.9 || count >= 30 || (count >= 18 && w.text.trim_end().ends_with(',')) {
+            if punct
+                || next_gap > 0.9
+                || count >= 30
+                || (count >= 18 && w.text.trim_end().ends_with(','))
+            {
                 out.push(self.make_segment(first, i));
                 first = i + 1;
             }
@@ -54,8 +61,18 @@ impl Transcript {
     }
 
     fn make_segment(&self, first: usize, last: usize) -> Segment {
-        let text = self.words[first..=last].iter().map(|w| w.text.trim()).collect::<Vec<_>>().join(" ");
-        Segment { start: self.words[first].start, end: self.words[last].end, text, first, last }
+        let text = self.words[first..=last]
+            .iter()
+            .map(|w| w.text.trim())
+            .collect::<Vec<_>>()
+            .join(" ");
+        Segment {
+            start: self.words[first].start,
+            end: self.words[last].end,
+            text,
+            first,
+            last,
+        }
     }
 
     pub fn text_between(&self, start: f64, end: f64) -> String {
@@ -70,7 +87,10 @@ impl Transcript {
 
 fn clean_word(t: &str) -> Option<String> {
     let s = t.trim();
-    if s.is_empty() || (s.starts_with('[') && s.ends_with(']')) || (s.starts_with('(') && s.ends_with(')')) {
+    if s.is_empty()
+        || (s.starts_with('[') && s.ends_with(']'))
+        || (s.starts_with('(') && s.ends_with(')'))
+    {
         return None;
     }
     Some(s.to_string())
@@ -106,18 +126,41 @@ async fn transcribe_local(
     }
     progress(0.0, "Extraindo áudio");
     let wav = work.join("audio16k.wav");
-    let mut c = Command::new(paths::ffmpeg());
-    c.args(["-hide_banner", "-y", "-i"]).arg(src).args(["-vn", "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le"]).arg(&wav);
-    proc::run(c, cancel, |_| {}).await.context("falha ao extrair o áudio")?;
+    let mut c = crate::proc::command(paths::ffmpeg());
+    c.args(["-hide_banner", "-y", "-i"])
+        .arg(src)
+        .args(["-vn", "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le"])
+        .arg(&wav);
+    proc::run(c, cancel, |_| {})
+        .await
+        .context("falha ao extrair o áudio")?;
 
     progress(0.0, "Transcrevendo (whisper.cpp)");
     let out_base = work.join("whisper");
-    let mut c = Command::new(paths::whisper_cli());
-    c.arg("-m").arg(&model).arg("-f").arg(&wav).arg("-of").arg(&out_base);
-    c.args(["-oj", "-ml", "1", "-sow", "-pp", "-t", &cfg.threads().to_string(), "-l", &cfg.language]);
+    let mut c = crate::proc::command(paths::whisper_cli());
+    c.arg("-m")
+        .arg(&model)
+        .arg("-f")
+        .arg(&wav)
+        .arg("-of")
+        .arg(&out_base);
+    c.args([
+        "-oj",
+        "-ml",
+        "1",
+        "-sow",
+        "-pp",
+        "-t",
+        &cfg.threads().to_string(),
+        "-l",
+        &cfg.language,
+    ]);
     proc::run(c, cancel, |line| {
         if let Some(i) = line.find("progress =") {
-            let n: String = line[i + 10..].chars().filter(|c| c.is_ascii_digit()).collect();
+            let n: String = line[i + 10..]
+                .chars()
+                .filter(|c| c.is_ascii_digit())
+                .collect();
             if let Ok(p) = n.parse::<f32>() {
                 progress(p / 100.0, "Transcrevendo (whisper.cpp)");
             }
@@ -127,24 +170,36 @@ async fn transcribe_local(
     let _ = tokio::fs::remove_file(&wav).await;
 
     let json_path = out_base.with_extension("json");
-    let raw = tokio::fs::read(&json_path).await.context("saída do whisper não encontrada")?;
+    let raw = tokio::fs::read(&json_path)
+        .await
+        .context("saída do whisper não encontrada")?;
     let v: serde_json::Value = serde_json::from_slice(&raw).context("JSON do whisper inválido")?;
     let language = v["result"]["language"].as_str().unwrap_or("").to_string();
     let mut words: Vec<Word> = Vec::new();
-    for item in v["transcription"].as_array().map(|a| a.as_slice()).unwrap_or(&[]) {
+    for item in v["transcription"]
+        .as_array()
+        .map(|a| a.as_slice())
+        .unwrap_or(&[])
+    {
         let text = item["text"].as_str().unwrap_or("");
         let from = item["offsets"]["from"].as_f64().unwrap_or(0.0) / 1000.0;
         let to = item["offsets"]["to"].as_f64().unwrap_or(0.0) / 1000.0;
         // Com -ml 1 o whisper às vezes separa pontuação em um item próprio
         let t = text.trim();
-        if !t.is_empty() && t.chars().all(|c| c.is_ascii_punctuation()) && !t.starts_with('[') {
-            if let Some(last) = words.last_mut() {
-                last.text.push_str(t);
-                continue;
-            }
+        if !t.is_empty()
+            && t.chars().all(|c| c.is_ascii_punctuation())
+            && !t.starts_with('[')
+            && let Some(last) = words.last_mut()
+        {
+            last.text.push_str(t);
+            continue;
         }
         if let Some(t) = clean_word(text) {
-            words.push(Word { start: from, end: to.max(from + 0.05), text: t });
+            words.push(Word {
+                start: from,
+                end: to.max(from + 0.05),
+                text: t,
+            });
         }
     }
     fix_timings(&mut words);
@@ -182,30 +237,60 @@ async fn transcribe_api(
     let chunks_dir = work.join("stt_chunks");
     let _ = tokio::fs::remove_dir_all(&chunks_dir).await;
     tokio::fs::create_dir_all(&chunks_dir).await?;
-    let mut c = Command::new(paths::ffmpeg());
+    let mut c = crate::proc::command(paths::ffmpeg());
     c.args(["-hide_banner", "-y", "-i"]).arg(src);
-    c.args(["-vn", "-ac", "1", "-ar", "16000", "-c:a", "libmp3lame", "-b:a", "48k", "-f", "segment"]);
-    c.args(["-segment_time", &CHUNK_SECS.to_string(), "-reset_timestamps", "1"]);
+    c.args([
+        "-vn",
+        "-ac",
+        "1",
+        "-ar",
+        "16000",
+        "-c:a",
+        "libmp3lame",
+        "-b:a",
+        "48k",
+        "-f",
+        "segment",
+    ]);
+    c.args([
+        "-segment_time",
+        &CHUNK_SECS.to_string(),
+        "-reset_timestamps",
+        "1",
+    ]);
     c.arg(chunks_dir.join("chunk_%03d.mp3"));
-    proc::run(c, cancel, |_| {}).await.context("falha ao extrair o áudio")?;
+    proc::run(c, cancel, |_| {})
+        .await
+        .context("falha ao extrair o áudio")?;
 
-    let mut files: Vec<_> = std::fs::read_dir(&chunks_dir)?.flatten().map(|e| e.path()).collect();
+    let mut files: Vec<_> = std::fs::read_dir(&chunks_dir)?
+        .flatten()
+        .map(|e| e.path())
+        .collect();
     files.sort();
     let client = crate::models::http_client();
-    let url = format!("{}/audio/transcriptions", cfg.stt_api_base.trim_end_matches('/'));
+    let url = format!(
+        "{}/audio/transcriptions",
+        cfg.stt_api_base.trim_end_matches('/')
+    );
     let mut all = Transcript::default();
     let n = files.len().max(1);
     for (i, f) in files.iter().enumerate() {
         if cancel.is_cancelled() {
             bail!("Cancelado");
         }
-        progress(i as f32 / n as f32, &format!("Transcrevendo via API ({}/{})", i + 1, n));
+        progress(
+            i as f32 / n as f32,
+            &format!("Transcrevendo via API ({}/{})", i + 1, n),
+        );
         let offset = i as f64 * CHUNK_SECS;
         let bytes = tokio::fs::read(f).await?;
         let mut last_err = None;
         let mut result = None;
         for attempt in 0..3 {
-            let part = reqwest::multipart::Part::bytes(bytes.clone()).file_name("audio.mp3").mime_str("audio/mpeg")?;
+            let part = reqwest::multipart::Part::bytes(bytes.clone())
+                .file_name("audio.mp3")
+                .mime_str("audio/mpeg")?;
             let mut form = reqwest::multipart::Form::new()
                 .part("file", part)
                 .text("model", cfg.stt_api_model.clone())
@@ -215,7 +300,10 @@ async fn transcribe_api(
             if cfg.language != "auto" && !cfg.language.is_empty() {
                 form = form.text("language", cfg.language.clone());
             }
-            let mut req = client.post(&url).multipart(form).timeout(std::time::Duration::from_secs(900));
+            let mut req = client
+                .post(&url)
+                .multipart(form)
+                .timeout(std::time::Duration::from_secs(900));
             if !cfg.stt_api_key.is_empty() {
                 req = req.bearer_auth(&cfg.stt_api_key);
             }
@@ -227,7 +315,10 @@ async fn transcribe_api(
                 Ok(r) => {
                     let st = r.status();
                     let body = r.text().await.unwrap_or_default();
-                    last_err = Some(anyhow::anyhow!("API de transcrição respondeu {st}: {}", body.chars().take(600).collect::<String>()));
+                    last_err = Some(anyhow::anyhow!(
+                        "API de transcrição respondeu {st}: {}",
+                        body.chars().take(600).collect::<String>()
+                    ));
                     if st.as_u16() != 429 && !st.is_server_error() {
                         break;
                     }
@@ -238,7 +329,11 @@ async fn transcribe_api(
         }
         let v = match result {
             Some(v) => v,
-            None => return Err(last_err.unwrap_or_else(|| anyhow::anyhow!("falha na API de transcrição"))),
+            None => {
+                return Err(
+                    last_err.unwrap_or_else(|| anyhow::anyhow!("falha na API de transcrição"))
+                );
+            }
         };
         if all.language.is_empty() {
             all.language = v["language"].as_str().unwrap_or("").to_string();
@@ -250,23 +345,46 @@ async fn transcribe_api(
                 if let Some(t) = clean_word(text) {
                     let s = w["start"].as_f64().unwrap_or(0.0) + offset;
                     let e = w["end"].as_f64().unwrap_or(0.0) + offset;
-                    all.words.push(Word { start: s, end: e.max(s + 0.05), text: t });
+                    all.words.push(Word {
+                        start: s,
+                        end: e.max(s + 0.05),
+                        text: t,
+                    });
                 }
             }
             // A API costuma devolver palavras sem pontuação; recupera a pontuação dos segmentos.
-            restore_punctuation(&mut all.words, v["segments"].as_array().map(|a| a.as_slice()).unwrap_or(&[]), offset);
+            restore_punctuation(
+                &mut all.words,
+                v["segments"]
+                    .as_array()
+                    .map(|a| a.as_slice())
+                    .unwrap_or(&[]),
+                offset,
+            );
         } else {
             // Sem palavras: distribui o tempo do segmento entre as palavras.
             for s in v["segments"].as_array().cloned().unwrap_or_default() {
                 let st = s["start"].as_f64().unwrap_or(0.0) + offset;
                 let en = s["end"].as_f64().unwrap_or(0.0) + offset;
-                let toks: Vec<&str> = s["text"].as_str().unwrap_or("").split_whitespace().collect();
-                let total: usize = toks.iter().map(|t| t.chars().count() + 1).sum::<usize>().max(1);
+                let toks: Vec<&str> = s["text"]
+                    .as_str()
+                    .unwrap_or("")
+                    .split_whitespace()
+                    .collect();
+                let total: usize = toks
+                    .iter()
+                    .map(|t| t.chars().count() + 1)
+                    .sum::<usize>()
+                    .max(1);
                 let mut t = st;
                 for tok in toks {
                     let d = (en - st) * (tok.chars().count() + 1) as f64 / total as f64;
                     if let Some(txt) = clean_word(tok) {
-                        all.words.push(Word { start: t, end: t + d, text: txt });
+                        all.words.push(Word {
+                            start: t,
+                            end: t + d,
+                            text: txt,
+                        });
                     }
                     t += d;
                 }
@@ -282,7 +400,9 @@ async fn transcribe_api(
 fn restore_punctuation(words: &mut [Word], segments: &[serde_json::Value], offset: f64) {
     for s in segments {
         let text = s["text"].as_str().unwrap_or("").trim();
-        let Some(last_char) = text.chars().last() else { continue };
+        let Some(last_char) = text.chars().last() else {
+            continue;
+        };
         if !matches!(last_char, '.' | '?' | '!' | ',' | '…') {
             continue;
         }
@@ -291,10 +411,9 @@ fn restore_punctuation(words: &mut [Word], segments: &[serde_json::Value], offse
             .iter_mut()
             .filter(|w| (w.end - end).abs() < 1.0)
             .min_by(|a, b| (a.end - end).abs().total_cmp(&(b.end - end).abs()))
+            && !w.text.ends_with(['.', '?', '!', ',', '…'])
         {
-            if !w.text.ends_with(['.', '?', '!', ',', '…']) {
-                w.text.push(last_char);
-            }
+            w.text.push(last_char);
         }
     }
 }

@@ -1,6 +1,6 @@
 //! Catálogo de modelos locais (Whisper e LLM GGUF) e gerenciador de downloads.
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use futures_util::StreamExt;
 use serde::Serialize;
 use std::path::{Path, PathBuf};
@@ -16,19 +16,49 @@ pub struct ModelInfo {
     pub desc: &'static str,
 }
 
-
 pub fn whisper_catalog() -> Vec<ModelInfo> {
     macro_rules! w {
         ($id:literal, $name:literal, $size:literal, $desc:literal) => {
-            ModelInfo { id: $id, name: $name, file: concat!("ggml-", $id, ".bin"), url: concat!("https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-", $id, ".bin"), size_mb: $size, desc: $desc }
+            ModelInfo {
+                id: $id,
+                name: $name,
+                file: concat!("ggml-", $id, ".bin"),
+                url: concat!(
+                    "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-",
+                    $id,
+                    ".bin"
+                ),
+                size_mb: $size,
+                desc: $desc,
+            }
         };
     }
     vec![
         w!("tiny", "Whisper Tiny", 75, "Muito rápido, precisão baixa."),
-        w!("base", "Whisper Base", 142, "Rápido. Bom para testar (recomendado para PCs simples)."),
-        w!("small", "Whisper Small", 466, "Bom equilíbrio entre velocidade e precisão."),
-        w!("large-v3-turbo-q5_0", "Whisper Large v3 Turbo (Q5)", 547, "Ótima precisão em português. Mais lento."),
-        w!("medium", "Whisper Medium", 1500, "Alta precisão, lento em CPU."),
+        w!(
+            "base",
+            "Whisper Base",
+            142,
+            "Rápido. Bom para testar (recomendado para PCs simples)."
+        ),
+        w!(
+            "small",
+            "Whisper Small",
+            466,
+            "Bom equilíbrio entre velocidade e precisão."
+        ),
+        w!(
+            "large-v3-turbo-q5_0",
+            "Whisper Large v3 Turbo (Q5)",
+            547,
+            "Ótima precisão em português. Mais lento."
+        ),
+        w!(
+            "medium",
+            "Whisper Medium",
+            1500,
+            "Alta precisão, lento em CPU."
+        ),
     ]
 }
 
@@ -105,7 +135,14 @@ pub fn installed(kind: &str) -> Vec<(String, u64)> {
 }
 
 pub fn safe_file_name(name: &str) -> Result<String> {
-    let n = name.rsplit('/').next().unwrap_or(name).split('?').next().unwrap_or("").trim();
+    let n = name
+        .rsplit('/')
+        .next()
+        .unwrap_or(name)
+        .split('?')
+        .next()
+        .unwrap_or("")
+        .trim();
     if n.is_empty() || n.starts_with('.') || n.contains('\\') || n.contains("..") {
         bail!("nome de arquivo inválido");
     }
@@ -122,7 +159,11 @@ pub fn http_client() -> reqwest::Client {
 
 /// Baixa `url` para `dest`, chamando `progress(baixado, total)`.
 pub async fn download(url: &str, dest: &Path, mut progress: impl FnMut(u64, u64)) -> Result<()> {
-    let resp = http_client().get(url).send().await.with_context(|| format!("falha ao conectar em {url}"))?;
+    let resp = http_client()
+        .get(url)
+        .send()
+        .await
+        .with_context(|| format!("falha ao conectar em {url}"))?;
     if !resp.status().is_success() {
         bail!("download falhou: HTTP {}", resp.status());
     }

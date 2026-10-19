@@ -213,6 +213,9 @@ h3{margin:18px 0 4px;font-size:15px}
         <div><label>Palavras por linha</label><input id="words_per_line" type="number" min="1" max="8"></div>
       </div>
       <div class="chk"><input type="checkbox" id="sub_uppercase"> Texto em MAIÚSCULAS</div>
+      <h3>Título</h3>
+      <div class="chk"><input type="checkbox" id="title_overlay"> Mostrar o título viral no topo do clipe</div>
+      <div class="hint">O título é criado pela IA. Você pode alterá-lo em “✎ Editar” e renderizar de novo.</div>
       <h3>Desempenho</h3>
       <label>Threads de CPU (0 = automático)</label><input id="threads" type="number" min="0" max="64">
     </div>
@@ -261,7 +264,7 @@ const PRESETS = {
     ['OpenAI', 'https://api.openai.com/v1', 'whisper-1'],
   ],
 };
-const FIELDS = ['stt_provider','whisper_model','language','stt_api_base','stt_api_key','stt_api_model','llm_provider','llm_api_base','llm_api_key','llm_api_model','llm_local_model','llm_ctx','extra_prompt','max_clips','min_len','max_len','aspect','crop_mode','quality','subtitles','sub_font','sub_size','sub_color','sub_highlight','sub_position','sub_uppercase','words_per_line','threads','ytdlp_args'];
+const FIELDS = ['stt_provider','whisper_model','language','stt_api_base','stt_api_key','stt_api_model','llm_provider','llm_api_base','llm_api_key','llm_api_model','llm_local_model','llm_ctx','extra_prompt','max_clips','min_len','max_len','aspect','crop_mode','quality','subtitles','sub_font','sub_size','sub_color','sub_highlight','sub_position','sub_uppercase','words_per_line','title_overlay','threads','ytdlp_args'];
 const NUM = new Set(['llm_ctx','max_clips','min_len','max_len','sub_size','words_per_line','threads']);
 
 function toast(msg, ms=3500){ const t=$('#toast'); t.textContent=msg; t.classList.add('on'); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('on'), ms); }
