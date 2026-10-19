@@ -1,0 +1,514 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ClipForge</title>
+<link rel="icon" href="data:,">
+<style>
+:root{
+  --bg:#0f1115;--panel:#171a21;--panel2:#1e222b;--line:#2a2f3a;--text:#e8eaf0;--muted:#9aa1b1;
+  --accent:#7c5cff;--accent2:#a48bff;--ok:#2ecc71;--warn:#f5b041;--bad:#ff5c6c;--radius:12px;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,Ubuntu,sans-serif}
+a{color:var(--accent2)}
+header{display:flex;align-items:center;gap:12px;padding:14px 22px;border-bottom:1px solid var(--line);background:#12141a;position:sticky;top:0;z-index:5}
+.logo{font-weight:800;font-size:20px;letter-spacing:.3px}
+.logo span{color:var(--accent2)}
+header .sp{flex:1}
+main{max-width:1180px;margin:0 auto;padding:22px 16px 80px}
+button,.btn{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:9px;padding:8px 14px;font:inherit;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+button:hover,.btn:hover{border-color:#3b4252;background:#252a35}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+button.primary:hover{background:#6a48ff}
+button.danger{color:var(--bad)}
+button.small,.btn.small{padding:5px 10px;font-size:13px}
+button:disabled{opacity:.5;cursor:default}
+input,select,textarea{background:#0f1218;color:var(--text);border:1px solid var(--line);border-radius:9px;padding:9px 11px;font:inherit;width:100%}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
+input[type=checkbox]{width:auto}
+input[type=color]{padding:2px;height:38px}
+label{display:block;font-size:13px;color:var(--muted);margin:12px 0 5px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px}
+.hero h1{margin:0 0 4px;font-size:22px}
+.hero p{margin:0 0 14px;color:var(--muted)}
+.row{display:flex;gap:10px;align-items:center}
+.row.wrap{flex-wrap:wrap}
+.grow{flex:1}
+.summary{margin-top:12px;font-size:13px;color:var(--muted)}
+.summary b{color:var(--text);font-weight:600}
+.banner{margin-top:14px;padding:11px 14px;border-radius:10px;background:#2b2412;border:1px solid #5b4a1a;color:#ffd98a;font-size:14px;display:flex;gap:10px;align-items:center}
+.projects{margin-top:22px;display:flex;flex-direction:column;gap:16px}
+.proj-head{display:flex;gap:12px;align-items:flex-start}
+.proj-title{font-weight:700;font-size:16px;word-break:break-word}
+.proj-sub{font-size:13px;color:var(--muted)}
+.pill{font-size:12px;padding:2px 9px;border-radius:99px;border:1px solid var(--line);color:var(--muted)}
+.pill.running,.pill.queued{color:var(--accent2);border-color:#4a3f8a}
+.pill.done{color:var(--ok);border-color:#1f5c3a}
+.pill.error{color:var(--bad);border-color:#6b2a33}
+.bar{height:8px;background:#0f1218;border-radius:99px;overflow:hidden;margin-top:10px;border:1px solid var(--line)}
+.bar>div{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));width:0;transition:width .4s}
+.stage{font-size:13px;color:var(--muted);margin-top:6px}
+.err{margin-top:10px;background:#2a1418;border:1px solid #6b2a33;color:#ffb3bb;border-radius:9px;padding:10px;font-size:13px;white-space:pre-wrap;word-break:break-word;max-height:220px;overflow:auto}
+.clips{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px;margin-top:16px}
+.clip{background:var(--panel2);border:1px solid var(--line);border-radius:11px;overflow:hidden;display:flex;flex-direction:column}
+.clip .media{position:relative;background:#000;aspect-ratio:9/16;display:flex;align-items:center;justify-content:center}
+.clip.r11 .media{aspect-ratio:1/1}.clip.r45 .media{aspect-ratio:4/5}.clip.r169 .media{aspect-ratio:16/9}
+.clip video{width:100%;height:100%;object-fit:contain;background:#000}
+.clip .ph{color:var(--muted);font-size:13px;padding:10px;text-align:center}
+.score{position:absolute;top:8px;left:8px;background:rgba(0,0,0,.72);border-radius:8px;padding:3px 8px;font-weight:800;font-size:14px;z-index:2}
+.score.hi{color:#5dffa0}.score.mid{color:#ffd35c}.score.lo{color:#ff9f9f}
+.clip .info{padding:10px 11px 12px;display:flex;flex-direction:column;gap:6px;flex:1}
+.clip .t{font-weight:700;font-size:14px}
+.clip .m{font-size:12px;color:var(--muted)}
+.clip .r{font-size:12px;color:#c6cad6}
+.clip .acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:auto;padding-top:6px}
+.edit{display:none;flex-direction:column;gap:6px;margin-top:4px}
+.edit.on{display:flex}
+.edit input{padding:6px 8px;font-size:13px}
+.mini{height:5px;background:#0f1218;border-radius:9px;overflow:hidden;width:70%;margin-top:8px}
+.mini>div{height:100%;background:var(--accent2);width:0}
+.empty{color:var(--muted);text-align:center;padding:40px 10px}
+/* modal */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:flex-start;justify-content:center;z-index:20;overflow:auto;padding:30px 12px}
+.modal-bg.on{display:flex}
+.modal{width:min(820px,100%);background:var(--panel);border:1px solid var(--line);border-radius:14px}
+.modal-h{display:flex;align-items:center;padding:14px 18px;border-bottom:1px solid var(--line)}
+.modal-h h2{margin:0;font-size:18px;flex:1}
+.tabs{display:flex;gap:4px;padding:10px 14px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.tab{border:none;background:none;border-bottom:2px solid transparent;border-radius:0;padding:9px 12px;color:var(--muted)}
+.tab.on{color:var(--text);border-bottom-color:var(--accent)}
+.tab:hover{background:none}
+.pane{display:none;padding:6px 18px 18px}
+.pane.on{display:block}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 16px}
+@media(max-width:640px){.grid2{grid-template-columns:1fr}}
+.hint{font-size:12px;color:var(--muted);margin-top:4px}
+.modal-f{display:flex;gap:10px;justify-content:flex-end;padding:14px 18px;border-top:1px solid var(--line)}
+.model{display:flex;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.model:last-child{border-bottom:none}
+.model .n{font-weight:600}
+.model .d{font-size:12px;color:var(--muted)}
+.ok{color:var(--ok);font-size:13px}
+h3{margin:18px 0 4px;font-size:15px}
+.sys{font-size:13px;display:grid;grid-template-columns:160px 1fr;gap:6px 12px;margin-top:10px}
+.sys div:nth-child(odd){color:var(--muted)}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#252a35;border:1px solid var(--line);padding:10px 16px;border-radius:10px;z-index:50;display:none;max-width:90vw}
+.toast.on{display:block}
+.chk{display:flex;align-items:center;gap:8px;margin-top:14px;color:var(--text);font-size:14px}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">Clip<span>Forge</span></div>
+  <div class="proj-sub">gerador de clipes local e gratuito</div>
+  <div class="sp"></div>
+  <button onclick="openSettings()">⚙ Configurações</button>
+  <button onclick="quit()" title="Fechar o aplicativo">⏻ Sair</button>
+</header>
+<main>
+  <div class="card hero">
+    <h1>Transforme vídeos longos em clipes virais</h1>
+    <p>Cole o link (YouTube, Twitch, Vimeo, X, Instagram e +1000 sites) ou envie um arquivo do seu computador.</p>
+    <div class="row wrap">
+      <input id="url" class="grow" style="min-width:240px" placeholder="https://www.youtube.com/watch?v=..." onkeydown="if(event.key==='Enter')submitUrl()">
+      <button class="primary" onclick="submitUrl()">✂ Gerar clipes</button>
+      <label class="btn" style="margin:0">📁 Enviar arquivo<input type="file" id="file" accept="video/*,audio/*" style="display:none" onchange="upload(this)"></label>
+    </div>
+    <div id="upbar" class="bar" style="display:none"><div></div></div>
+    <div class="summary" id="summary"></div>
+    <div id="banner"></div>
+  </div>
+  <div class="projects" id="projects"></div>
+</main>
+
+<div class="modal-bg" id="settings" onclick="if(event.target===this)closeSettings()">
+  <div class="modal">
+    <div class="modal-h"><h2>Configurações</h2><button onclick="closeSettings()">✕</button></div>
+    <div class="tabs">
+      <button class="tab on" data-p="p-stt">🎙 Transcrição</button>
+      <button class="tab" data-p="p-ai">🧠 IA</button>
+      <button class="tab" data-p="p-clip">🎬 Clipes e legendas</button>
+      <button class="tab" data-p="p-models">⬇ Modelos locais</button>
+      <button class="tab" data-p="p-sys">🖥 Sistema</button>
+    </div>
+
+    <div class="pane on" id="p-stt">
+      <label>Como transcrever o áudio</label>
+      <select id="stt_provider" onchange="sync()">
+        <option value="local">Local — whisper.cpp no seu PC (grátis, offline)</option>
+        <option value="api">API online — compatível com OpenAI (Groq, OpenAI…)</option>
+      </select>
+      <div id="stt-local">
+        <label>Modelo Whisper</label>
+        <select id="whisper_model"></select>
+        <div class="hint">Baixe modelos na aba “Modelos locais”. “Base” é rápido; “Large v3 Turbo” é o mais preciso.</div>
+      </div>
+      <div id="stt-api">
+        <label>Provedor (atalho)</label>
+        <select id="stt_preset" onchange="applyPreset('stt')"></select>
+        <div class="grid2">
+          <div><label>Endereço da API (base URL)</label><input id="stt_api_base"></div>
+          <div><label>Modelo</label><input id="stt_api_model"></div>
+        </div>
+        <label>Chave da API</label><input id="stt_api_key" type="password" placeholder="gsk_... / sk-...">
+        <div class="hint">A Groq oferece transcrição gratuita (com limites): crie a chave em console.groq.com/keys.</div>
+      </div>
+      <label>Idioma do vídeo</label>
+      <select id="language">
+        <option value="auto">Detectar automaticamente</option><option value="pt">Português</option><option value="en">Inglês</option>
+        <option value="es">Espanhol</option><option value="fr">Francês</option><option value="de">Alemão</option><option value="it">Italiano</option>
+        <option value="ja">Japonês</option><option value="ko">Coreano</option><option value="zh">Chinês</option><option value="ru">Russo</option>
+      </select>
+    </div>
+
+    <div class="pane" id="p-ai">
+      <label>Quem escolhe os melhores trechos</label>
+      <select id="llm_provider" onchange="sync()">
+        <option value="local">IA local — modelo baixado no seu PC (grátis, offline)</option>
+        <option value="api">API de IA — compatível com OpenAI (Groq, OpenRouter, Gemini, Ollama…)</option>
+        <option value="none">Sem IA — heurística simples (mais rápido, menos preciso)</option>
+      </select>
+      <div id="ai-local">
+        <label>Modelo local (GGUF)</label>
+        <select id="llm_local_model"></select>
+        <div class="hint">Baixe um modelo na aba “Modelos locais”. Recomendado: Qwen 2.5 3B.</div>
+        <label>Tamanho do contexto (tokens)</label>
+        <select id="llm_ctx"><option value="4096">4096 (pouca RAM)</option><option value="8192">8192 (recomendado)</option><option value="16384">16384 (mais RAM)</option></select>
+      </div>
+      <div id="ai-api">
+        <label>Provedor (atalho)</label>
+        <select id="llm_preset" onchange="applyPreset('llm')"></select>
+        <div class="grid2">
+          <div><label>Endereço da API (base URL)</label><input id="llm_api_base"></div>
+          <div><label>Modelo</label><input id="llm_api_model"></div>
+        </div>
+        <label>Chave da API</label><input id="llm_api_key" type="password" placeholder="deixe vazio para Ollama / LM Studio">
+      </div>
+      <label>Instruções extras para a IA (opcional)</label>
+      <textarea id="extra_prompt" rows="2" placeholder="Ex.: priorize momentos engraçados; evite trechos com propaganda"></textarea>
+      <div class="row" style="margin-top:12px"><button onclick="testLlm()">🔌 Testar conexão</button><span id="llm-test" class="hint"></span></div>
+    </div>
+
+    <div class="pane" id="p-clip">
+      <div class="grid2">
+        <div><label>Quantidade máxima de clipes</label><input id="max_clips" type="number" min="1" max="30"></div>
+        <div><label>Formato</label>
+          <select id="aspect"><option value="9:16">9:16 — Shorts / Reels / TikTok</option><option value="1:1">1:1 — Quadrado</option><option value="4:5">4:5 — Feed</option><option value="16:9">16:9 — Horizontal</option></select></div>
+        <div><label>Duração mínima (segundos)</label><input id="min_len" type="number" min="5" max="300"></div>
+        <div><label>Duração máxima (segundos)</label><input id="max_len" type="number" min="10" max="600"></div>
+        <div><label>Enquadramento</label>
+          <select id="crop_mode"><option value="face">Seguir rosto (automático)</option><option value="center">Cortar no centro</option><option value="blur">Vídeo inteiro com fundo desfocado</option></select></div>
+        <div><label>Qualidade</label><select id="quality"><option value="1080">1080p</option><option value="720">720p (mais rápido)</option></select></div>
+      </div>
+      <h3>Legendas</h3>
+      <div class="chk"><input type="checkbox" id="subtitles"> Gravar legendas animadas no vídeo</div>
+      <div class="grid2">
+        <div><label>Fonte</label><select id="sub_font"><option>Anton</option><option>Poppins</option><option>DejaVu Sans</option></select></div>
+        <div><label>Tamanho</label><input id="sub_size" type="number" min="30" max="200"></div>
+        <div><label>Cor do texto</label><input id="sub_color" type="color"></div>
+        <div><label>Cor da palavra em destaque</label><input id="sub_highlight" type="color"></div>
+        <div><label>Posição</label><select id="sub_position"><option value="bottom">Embaixo</option><option value="middle">Centro</option><option value="top">Em cima</option></select></div>
+        <div><label>Palavras por linha</label><input id="words_per_line" type="number" min="1" max="8"></div>
+      </div>
+      <div class="chk"><input type="checkbox" id="sub_uppercase"> Texto em MAIÚSCULAS</div>
+      <h3>Desempenho</h3>
+      <label>Threads de CPU (0 = automático)</label><input id="threads" type="number" min="0" max="64">
+    </div>
+
+    <div class="pane" id="p-models">
+      <h3>Whisper (transcrição)</h3><div id="m-whisper"></div>
+      <h3>IA local (LLM)</h3><div id="m-llm"></div>
+      <h3>Modelo personalizado</h3>
+      <div class="hint">Cole o link direto (Hugging Face “resolve/main/…”) de um arquivo .gguf (IA) ou ggml .bin (Whisper).</div>
+      <div class="row" style="margin-top:8px">
+        <select id="custom-kind" style="width:150px"><option value="llm">IA (.gguf)</option><option value="whisper">Whisper (.bin)</option></select>
+        <input id="custom-url" placeholder="https://huggingface.co/.../resolve/main/modelo.gguf">
+        <button onclick="customDownload()">Baixar</button>
+      </div>
+    </div>
+
+    <div class="pane" id="p-sys">
+      <div class="sys" id="sysinfo">Carregando…</div>
+      <div class="row" style="margin-top:16px"><button onclick="updateYtdlp()">⟳ Atualizar yt-dlp</button><span id="yt-out" class="hint"></span></div>
+      <label>Argumentos extras do yt-dlp (opcional)</label>
+      <input id="ytdlp_args" placeholder="--cookies-from-browser firefox">
+      <div class="hint">Se o YouTube pedir login (“confirme que você não é um robô”), use <code>--cookies-from-browser firefox</code> (ou chrome) e clique em Salvar.</div>
+      <div class="hint" style="margin-top:8px">Se um site parar de baixar, atualize o yt-dlp. Os clipes ficam salvos na pasta de dados acima.</div>
+    </div>
+
+    <div class="modal-f"><button onclick="closeSettings()">Cancelar</button><button class="primary" onclick="saveSettings()">Salvar</button></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let CFG = null, MODELS = null, STATE = {projects: []};
+const PRESETS = {
+  llm: [
+    ['Groq (gratuito com limites)', 'https://api.groq.com/openai/v1', 'llama-3.3-70b-versatile'],
+    ['Google Gemini (gratuito com limites)', 'https://generativelanguage.googleapis.com/v1beta/openai', 'gemini-2.5-flash'],
+    ['OpenRouter (modelos :free)', 'https://openrouter.ai/api/v1', 'meta-llama/llama-3.3-70b-instruct:free'],
+    ['OpenAI', 'https://api.openai.com/v1', 'gpt-4o-mini'],
+    ['Ollama (no seu PC)', 'http://localhost:11434/v1', 'llama3.2'],
+    ['LM Studio (no seu PC)', 'http://localhost:1234/v1', 'local-model'],
+  ],
+  stt: [
+    ['Groq (gratuito com limites)', 'https://api.groq.com/openai/v1', 'whisper-large-v3-turbo'],
+    ['OpenAI', 'https://api.openai.com/v1', 'whisper-1'],
+  ],
+};
+const FIELDS = ['stt_provider','whisper_model','language','stt_api_base','stt_api_key','stt_api_model','llm_provider','llm_api_base','llm_api_key','llm_api_model','llm_local_model','llm_ctx','extra_prompt','max_clips','min_len','max_len','aspect','crop_mode','quality','subtitles','sub_font','sub_size','sub_color','sub_highlight','sub_position','sub_uppercase','words_per_line','threads','ytdlp_args'];
+const NUM = new Set(['llm_ctx','max_clips','min_len','max_len','sub_size','words_per_line','threads']);
+
+function toast(msg, ms=3500){ const t=$('#toast'); t.textContent=msg; t.classList.add('on'); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('on'), ms); }
+async function api(path, opts={}){
+  const o = {...opts};
+  if (o.body && !(o.body instanceof FormData)) { o.headers={'content-type':'application/json'}; o.body=JSON.stringify(o.body); }
+  const r = await fetch(path, o);
+  const j = await r.json().catch(()=>({}));
+  if (!r.ok) throw new Error(j.error || ('HTTP '+r.status));
+  return j;
+}
+const fmt = t => { t=Math.max(0,t||0); const m=Math.floor(t/60), s=(t%60); return m+':'+(s<10?'0':'')+s.toFixed(1); };
+const parseT = v => { v=String(v).trim(); if(v.includes(':')){ return v.split(':').reduce((a,p)=>a*60+parseFloat(p||0),0);} return parseFloat(v); };
+
+// ---------- Projetos ----------
+async function submitUrl(){
+  const url = $('#url').value.trim(); if(!url) return toast('Cole um link de vídeo.');
+  try { await api('/api/projects', {method:'POST', body:{url}}); $('#url').value=''; poll(); }
+  catch(e){ toast(e.message); }
+}
+function upload(inp){
+  const f = inp.files[0]; if(!f) return;
+  const fd = new FormData(); fd.append('file', f);
+  const xhr = new XMLHttpRequest(); const bar=$('#upbar'); bar.style.display='block';
+  xhr.upload.onprogress = e => { if(e.lengthComputable) bar.firstElementChild.style.width=(e.loaded/e.total*100)+'%'; };
+  xhr.onload = () => { bar.style.display='none'; inp.value=''; if(xhr.status>=300){ try{toast(JSON.parse(xhr.responseText).error)}catch{toast('Falha no envio')} } poll(); };
+  xhr.onerror = () => { bar.style.display='none'; toast('Falha no envio'); };
+  xhr.open('POST','/api/upload'); xhr.send(fd);
+}
+async function act(id, what){
+  if (what==='delete' && !confirm('Apagar este projeto e todos os clipes?')) return;
+  try { await api(`/api/projects/${id}/${what}`, {method:'POST'}); poll(); } catch(e){ toast(e.message); }
+}
+function aspectClass(){ const a=CFG?.aspect; return a==='1:1'?'r11':a==='4:5'?'r45':a==='16:9'?'r169':''; }
+function scoreClass(s){ return s>=80?'hi':s>=60?'mid':'lo'; }
+
+function clipHtml(p, c){
+  const base = `/files/${p.id}/${c.name}`;
+  let media;
+  if (c.status==='done') media = `<video controls preload="none" poster="${base}.jpg?v=${c.rev}" src="${base}.mp4?v=${c.rev}"></video>`;
+  else if (c.status==='rendering') media = `<div class="ph">Renderizando… ${Math.round(c.progress*100)}%<div class="mini"><div style="width:${c.progress*100}%"></div></div></div>`;
+  else if (c.status==='error') media = `<div class="ph" style="color:var(--bad)">Erro ao gerar<br><small>${esc((c.error||'').slice(0,200))}</small></div>`;
+  else media = `<div class="ph">Na fila…</div>`;
+  return `<div class="clip ${aspectClass()}" data-k="${p.id}-${c.index}">
+    <div class="media"><div class="score ${scoreClass(c.score)}">${c.score}</div>${media}</div>
+    <div class="info">
+      <div class="t">${esc(c.title)}</div>
+      <div class="m">${fmt(c.start)} → ${fmt(c.end)} · ${(c.end-c.start).toFixed(0)}s</div>
+      ${c.reason?`<div class="r">💡 ${esc(c.reason)}</div>`:''}
+      <div class="acts">
+        ${c.status==='done'?`<a class="btn small" href="${base}.mp4?v=${c.rev}" download="${esc((c.title||c.name).replace(/[\\/:*?"<>|]/g,'').slice(0,60)||c.name)}.mp4">⬇ Baixar</a>`:''}
+        <button class="small" onclick="toggleEdit(this)">✎ Editar</button>
+        <button class="small" onclick="copyText(${JSON.stringify(c.title).replace(/"/g,'&quot;')})">⧉ Título</button>
+      </div>
+      <div class="edit">
+        <input value="${esc(c.title)}" data-f="title" placeholder="Título">
+        <div class="row"><input value="${fmt(c.start)}" data-f="start" title="Início (m:ss)"><input value="${fmt(c.end)}" data-f="end" title="Fim (m:ss)"></div>
+        <button class="small primary" onclick="rerender('${p.id}',${c.index},this)">Renderizar de novo</button>
+      </div>
+    </div></div>`;
+}
+function toggleEdit(b){ b.closest('.info').querySelector('.edit').classList.toggle('on'); }
+function copyText(t){ navigator.clipboard?.writeText(t).then(()=>toast('Título copiado')); }
+async function rerender(id, idx, b){
+  const box = b.closest('.edit'); const g = f => box.querySelector(`[data-f=${f}]`).value;
+  try { await api(`/api/projects/${id}/clips/${idx}/render`, {method:'POST', body:{start:parseT(g('start')), end:parseT(g('end')), title:g('title')}}); poll(); }
+  catch(e){ toast(e.message); }
+}
+
+const STATUS = {queued:'Na fila', running:'Processando', done:'Concluído', error:'Erro', cancelled:'Cancelado'};
+const cards = new Map();
+function renderProjects(){
+  const root = $('#projects');
+  const list = STATE.projects;
+  if (!list.length){ root.innerHTML = '<div class="card empty">Nenhum projeto ainda. Cole um link acima para começar. 🎬</div>'; cards.clear(); return; }
+  if (root.querySelector('.empty')) root.innerHTML='';
+  const seen = new Set();
+  list.forEach((p, i) => {
+    seen.add(p.id);
+    let el = cards.get(p.id);
+    if (!el){
+      el = document.createElement('div'); el.className='card';
+      el.innerHTML = `<div class="proj-head"><div class="grow"><div class="proj-title"></div><div class="proj-sub"></div></div><span class="pill"></span></div>
+        <div class="prog"><div class="bar"><div></div></div><div class="stage"></div></div><div class="errbox"></div>
+        <div class="row wrap acts" style="margin-top:12px"></div><div class="clips"></div>`;
+      cards.set(p.id, el);
+    }
+    if (root.children[i] !== el) root.insertBefore(el, root.children[i] || null);
+    el.querySelector('.proj-title').textContent = p.title || p.source;
+    const dur = p.duration ? ` · ${fmt(p.duration)} de vídeo` : '';
+    el.querySelector('.proj-sub').innerHTML = `${esc(p.source.startsWith('http')?p.source:'Arquivo: '+p.source)}${dur}${p.language?` · idioma: ${esc(p.language)}`:''}`;
+    const pill = el.querySelector('.pill'); pill.className='pill '+p.status; pill.textContent=STATUS[p.status]||p.status;
+    const active = p.status==='running'||p.status==='queued';
+    el.querySelector('.prog').style.display = active ? '' : 'none';
+    el.querySelector('.bar>div').style.width = (p.progress*100).toFixed(1)+'%';
+    el.querySelector('.stage').textContent = `${p.stage||''} ${p.status==='running'?Math.round(p.progress*100)+'%':''}`;
+    const eb = el.querySelector('.errbox'); const errTxt = (p.status==='error'||p.status==='cancelled') ? (p.error||'') : '';
+    if (eb._t !== errTxt){ eb._t = errTxt; eb.innerHTML = errTxt ? `<div class="err">${esc(errTxt)}</div>` : ''; }
+    const actsKey = p.status + (p.clips.length>0);
+    const acts = el.querySelector('.acts');
+    if (acts._k !== actsKey){
+      acts._k = actsKey;
+      acts.innerHTML = (active ? `<button class="small" onclick="act('${p.id}','cancel')">■ Cancelar</button>` :
+        `<button class="small" onclick="act('${p.id}','retry')" title="Escolhe os trechos de novo com as configurações atuais">⟳ ${p.status==='done'?'Gerar de novo':'Tentar de novo'}</button>
+         <button class="small" onclick="act('${p.id}','retranscribe')" title="Refaz a transcrição com o modelo atual">🎙 Refazer transcrição</button>`) +
+        `<button class="small" onclick="act('${p.id}','open')">📂 Abrir pasta</button>
+         <button class="small danger" onclick="act('${p.id}','delete')">🗑 Apagar</button>`;
+    }
+    const sig = JSON.stringify(p.clips.map(c=>[c.status,c.rev,c.title,c.start,c.end,c.status==='rendering'?Math.round(c.progress*20):0])) + aspectClass();
+    const box = el.querySelector('.clips');
+    if (box._s !== sig){
+      // Atualiza só os clipes que mudaram (não interrompe vídeos tocando)
+      box._s = sig;
+      const old = new Map([...box.children].map(n => [n.dataset.k, n]));
+      const frag = [];
+      p.clips.slice().sort((a,b)=>b.score-a.score).forEach(c => {
+        const k = `${p.id}-${c.index}`; const s = JSON.stringify([c.status,c.rev,c.title,c.start,c.end,c.status==='rendering'?Math.round(c.progress*20):0]);
+        let n = old.get(k);
+        if (!n || n._s !== s){ const t=document.createElement('div'); t.innerHTML=clipHtml(p,c); n=t.firstElementChild; n._s=s; }
+        frag.push(n);
+      });
+      box.replaceChildren(...frag);
+    }
+  });
+  for (const [id, el] of cards) if (!seen.has(id)){ el.remove(); cards.delete(id); }
+}
+
+let pollTimer = null;
+async function poll(){
+  clearTimeout(pollTimer);
+  try { STATE = await api('/api/state'); renderProjects(); } catch(e){}
+  const busy = STATE.projects.some(p=>p.status==='running'||p.status==='queued') || Object.values(STATE.downloads||{}).some(d=>!d.done);
+  if (Object.keys(STATE.downloads||{}).length && $('#settings').classList.contains('on')) refreshModels(false);
+  pollTimer = setTimeout(poll, busy ? 1200 : 4000);
+}
+
+// ---------- Configurações ----------
+function fillSelect(sel, opts, value){
+  sel.innerHTML = opts.map(([v,t])=>`<option value="${esc(v)}">${esc(t)}</option>`).join('');
+  if (value && !opts.some(o=>o[0]===value)) sel.insertAdjacentHTML('beforeend', `<option value="${esc(value)}">${esc(value)} (não instalado)</option>`);
+  sel.value = value || (opts[0]?.[0] ?? '');
+}
+function sync(){
+  $('#stt-local').style.display = $('#stt_provider').value==='local'?'':'none';
+  $('#stt-api').style.display = $('#stt_provider').value==='api'?'':'none';
+  $('#ai-local').style.display = $('#llm_provider').value==='local'?'':'none';
+  $('#ai-api').style.display = $('#llm_provider').value==='api'?'':'none';
+}
+function applyPreset(kind){
+  const i = $('#'+kind+'_preset').value; if (i==='') return;
+  const [, base, model] = PRESETS[kind][i];
+  $('#'+kind+'_api_base').value = base; $('#'+kind+'_api_model').value = model;
+}
+function readForm(){
+  const c = {...CFG};
+  for (const f of FIELDS){ const el=$('#'+f); if(!el) continue;
+    c[f] = el.type==='checkbox' ? el.checked : NUM.has(f) ? Number(el.value) : el.value; }
+  return c;
+}
+function writeForm(){
+  for (const f of FIELDS){ const el=$('#'+f); if(!el || el.tagName==='SELECT' && (f==='whisper_model'||f==='llm_local_model')) continue;
+    if (el.type==='checkbox') el.checked=!!CFG[f]; else el.value = CFG[f]; }
+  for (const k of ['llm','stt']){
+    $('#'+k+'_preset').innerHTML = '<option value="">— escolher —</option>' + PRESETS[k].map((p,i)=>`<option value="${i}">${esc(p[0])}</option>`).join('') + '<option value="">Personalizado</option>';
+    const i = PRESETS[k].findIndex(p=>p[1]===CFG[k+'_api_base']); $('#'+k+'_preset').value = i>=0 ? String(i) : '';
+  }
+  sync();
+}
+function fillModelSelects(){
+  const w = MODELS.whisper.filter(m=>m.installed).map(m=>[m.file, m.name]);
+  const l = MODELS.llm.filter(m=>m.installed).map(m=>[m.file, m.name]);
+  const cw = $('#whisper_model').value || CFG.whisper_model, cl = $('#llm_local_model').value || CFG.llm_local_model;
+  fillSelect($('#whisper_model'), w.length?w:[['', 'Nenhum modelo baixado']], cw);
+  fillSelect($('#llm_local_model'), l.length?l:[['', 'Nenhum modelo baixado']], cl);
+}
+async function openSettings(tab){
+  CFG = await api('/api/config'); writeForm();
+  await refreshModels(true);
+  $('#settings').classList.add('on');
+  if (tab) showTab(tab);
+  loadSys();
+}
+function closeSettings(){ $('#settings').classList.remove('on'); }
+async function saveSettings(){
+  const c = readForm();
+  if (c.min_len >= c.max_len) return toast('A duração mínima deve ser menor que a máxima.');
+  try { await api('/api/config', {method:'POST', body:c}); CFG=c; closeSettings(); toast('Configurações salvas'); updateSummary(); renderProjects(); }
+  catch(e){ toast(e.message); }
+}
+function showTab(id){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on', t.dataset.p===id));
+  document.querySelectorAll('.pane').forEach(p=>p.classList.toggle('on', p.id===id));
+}
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>showTab(t.dataset.p));
+
+function modelRow(kind, m, dl){
+  const size = m.size_mb>=1000 ? (m.size_mb/1000).toFixed(1)+' GB' : m.size_mb+' MB';
+  let right;
+  if (dl && !dl.done) { const p = dl.total? dl.downloaded/dl.total*100 : 0; right = `<div style="width:150px"><div class="bar" style="margin:0"><div style="width:${p}%"></div></div><div class="hint">${p.toFixed(0)}% de ${size}</div></div>`; }
+  else if (m.installed) right = `<span class="ok">✔ instalado</span> <button class="small danger" onclick="delModel('${kind}','${esc(m.file)}')">Remover</button>`;
+  else right = `${dl&&dl.error?`<span class="hint" style="color:var(--bad)">${esc(dl.error)}</span>`:''}<button class="small" onclick="dlModel('${kind}','${esc(m.id)}')">⬇ Baixar</button>`;
+  return `<div class="model"><div class="grow"><div class="n">${esc(m.name)} <span class="hint">· ${size}</span></div><div class="d">${esc(m.desc)}</div></div>${right}</div>`;
+}
+async function refreshModels(full){
+  const wasDownloading = MODELS && Object.values(MODELS.downloads||{}).some(d=>!d.done);
+  MODELS = await api('/api/models');
+  const d = MODELS.downloads || {};
+  $('#m-whisper').innerHTML = MODELS.whisper.map(m=>modelRow('whisper', m, d['whisper/'+m.file])).join('');
+  $('#m-llm').innerHTML = MODELS.llm.map(m=>modelRow('llm', m, d['llm/'+m.file])).join('');
+  const nowDownloading = Object.values(d).some(x=>!x.done);
+  if (full || (wasDownloading && !nowDownloading)) fillModelSelects();
+}
+async function dlModel(kind, id){ try { await api('/api/models/download',{method:'POST',body:{kind,id}}); refreshModels(false); poll(); } catch(e){ toast(e.message); } }
+async function customDownload(){ try { await api('/api/models/download',{method:'POST',body:{kind:$('#custom-kind').value,url:$('#custom-url').value}}); $('#custom-url').value=''; refreshModels(false); poll(); } catch(e){ toast(e.message); } }
+async function delModel(kind, file){ if(!confirm('Remover '+file+'?')) return; try { await api('/api/models/delete',{method:'POST',body:{kind,file}}); refreshModels(true); } catch(e){ toast(e.message); } }
+async function testLlm(){
+  $('#llm-test').textContent='Testando… (modelos locais podem levar alguns segundos para carregar)';
+  try { const r = await api('/api/test-llm',{method:'POST',body:readForm()}); $('#llm-test').textContent='✔ Resposta: '+r.reply.slice(0,120); }
+  catch(e){ $('#llm-test').textContent='✖ '+e.message; }
+}
+async function loadSys(){
+  try { const s = await api('/api/system');
+    $('#sysinfo').innerHTML = [['Versão',s.version],['ffmpeg',s.ffmpeg],['yt-dlp',s.ytdlp],['whisper.cpp',s.whisper],['llama.cpp',s.llama],['CPU com AVX2',s.avx2?'sim':'não (modo compatível)'],['Threads',s.threads],['Pasta de dados',s.data_dir]]
+      .map(([a,b])=>`<div>${a}</div><div>${esc(b)}</div>`).join('');
+  } catch(e){ $('#sysinfo').textContent = e.message; }
+}
+async function updateYtdlp(){ $('#yt-out').textContent='Atualizando…'; try { const r=await api('/api/ytdlp-update',{method:'POST'}); $('#yt-out').textContent=r.output.trim().split('\n').pop(); loadSys(); } catch(e){ $('#yt-out').textContent=e.message; } }
+async function quit(){ if(!confirm('Fechar o ClipForge? Trabalhos em andamento serão interrompidos.')) return; await api('/api/shutdown',{method:'POST'}).catch(()=>{}); document.body.innerHTML='<main><div class="card empty">ClipForge foi fechado. Pode fechar esta aba.</div></main>'; }
+
+async function updateSummary(){
+  const c = CFG; if(!c) return;
+  const stt = c.stt_provider==='local' ? `Local (${c.whisper_model.replace('ggml-','').replace('.bin','')})` : `API (${c.stt_api_model})`;
+  const ai = c.llm_provider==='none' ? 'Sem IA' : c.llm_provider==='local' ? `Local (${c.llm_local_model||'nenhum modelo'})` : `API (${c.llm_api_model})`;
+  const crop = {face:'seguir rosto', center:'centro', blur:'fundo desfocado'}[c.crop_mode];
+  $('#summary').innerHTML = `Transcrição: <b>${esc(stt)}</b> · Seleção: <b>${esc(ai)}</b> · <b>${c.aspect}</b> · ${crop} · ${c.min_len}–${c.max_len}s · até ${c.max_clips} clipes`;
+  try {
+    const m = await api('/api/models'); MODELS = m;
+    const msgs = [];
+    if (c.stt_provider==='local' && !m.whisper.some(x=>x.installed && x.file===c.whisper_model)) msgs.push('Baixe um modelo Whisper para transcrever localmente.');
+    if (c.llm_provider==='local' && !m.llm.some(x=>x.installed && x.file===c.llm_local_model)) msgs.push('Baixe e selecione um modelo de IA local (ou use API / sem IA).');
+    if (c.llm_provider==='api' && !c.llm_api_key && !/localhost|127\.0\.0\.1/.test(c.llm_api_base)) msgs.push('Informe a chave da API de IA.');
+    if (c.stt_provider==='api' && !c.stt_api_key) msgs.push('Informe a chave da API de transcrição.');
+    $('#banner').innerHTML = msgs.length ? `<div class="banner">⚠ <span class="grow">${msgs.map(esc).join('<br>')}</span><button class="small" onclick="openSettings('${msgs[0].includes('Whisper')||msgs[0].includes('local')?'p-models':'p-ai'}')">Resolver</button></div>` : '';
+  } catch(e){}
+}
+
+(async () => { CFG = await api('/api/config'); MODELS = null; updateSummary(); poll(); })();
+</script>
+</body>
+</html>

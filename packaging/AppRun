@@ -1,0 +1,7 @@
+#!/bin/sh
+# Ponto de entrada do AppImage do ClipForge
+HERE="$(dirname "$(readlink -f "$0")")"
+export CLIPFORGE_BIN_DIR="$HERE/usr/bin"
+export PATH="$HERE/usr/bin:$PATH"
+# yt-dlp usa o deno embutido para resolver os desafios JavaScript do YouTube
+exec "$HERE/usr/bin/clipforge" "$@"

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=ClipForge
+GenericName=Gerador de clipes
+Comment=Gera clipes curtos e virais a partir de vídeos longos (local e gratuito)
+Exec=clipforge
+Icon=clipforge
+Terminal=false
+Categories=AudioVideo;Video;
+Keywords=clip;shorts;reels;tiktok;video;
