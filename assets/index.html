@@ -175,7 +175,8 @@ h3{margin:18px 0 4px;font-size:15px}
         <select id="llm_local_model"></select>
         <div class="hint">Baixe um modelo na aba “Modelos locais”. Recomendado: Qwen 2.5 3B.</div>
         <label>Tamanho do contexto (tokens)</label>
-        <select id="llm_ctx"><option value="4096">4096 (pouca RAM)</option><option value="8192">8192 (recomendado)</option><option value="16384">16384 (mais RAM)</option></select>
+        <select id="llm_ctx"><option value="4096">4096 (pouca RAM)</option><option value="8192">8192 (recomendado)</option><option value="16384">16384 (mais RAM)</option><option value="32768">32768 (muita RAM)</option></select>
+        <div class="hint">Vídeos longos são divididos em partes que cabem no contexto. Contexto maior = menos partes, mas usa mais RAM.</div>
       </div>
       <div id="ai-api">
         <label>Provedor (atalho)</label>

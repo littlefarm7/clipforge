@@ -1,7 +1,8 @@
 //! Escolha dos melhores trechos: IA (API/local) ou heurística sem IA.
 
 use crate::config::Config;
-use crate::llm::{Llm, extract_json};
+use crate::llm::{ContextOverflow, Llm, extract_json};
+use std::collections::VecDeque;
 use crate::transcribe::{Segment, Transcript};
 use anyhow::{Result, bail};
 use serde_json::Value;
@@ -42,7 +43,7 @@ no MESMO idioma da transcrição. Ex.: \"Ninguém te conta isso sobre dinheiro\"
 - \"score\": nota de 0 a 100 do potencial viral.\n\
 - \"reason\": uma frase curta explicando por que o trecho é bom.\n{extra}\n\
 Formato da resposta:\n\
-{{\"clips\":[{{\"start\":12.3,\"end\":48.9,\"title\":\"...\",\"score\":87,\"reason\":\"...\"}}]}}",
+{{\"clips\":[{{\"start\":12,\"end\":49,\"title\":\"...\",\"score\":87,\"reason\":\"...\"}}]}}",
         min = cfg.min_len,
         max = cfg.max_len,
     )
@@ -177,6 +178,46 @@ fn fallback_title(t: &Transcript, c: &Candidate) -> String {
     s
 }
 
+/// Linha da transcrição enviada à IA. Segundos inteiros economizam tokens;
+/// os limites são reajustados às frases depois (função `snap`).
+fn line(s: &Segment) -> String {
+    format!("[{}-{}] {}", s.start.floor() as u64, s.end.ceil() as u64, s.text)
+}
+
+/// Estimativa conservadora de tokens: ≈3 caracteres por token (português com números).
+fn est_tokens(s: &str) -> usize {
+    s.chars().count() / 3 + 2
+}
+
+/// Divide as frases em blocos [início, fim) que cabem em `budget` tokens.
+/// Blocos vizinhos se sobrepõem por `overlap` segundos para não perder trechos na fronteira.
+fn chunks(segs: &[Segment], budget: usize, overlap: f64) -> Vec<(usize, usize)> {
+    let mut out = Vec::new();
+    let mut a = 0;
+    while a < segs.len() {
+        let mut b = a;
+        let mut used = 0;
+        while b < segs.len() {
+            let t = est_tokens(&line(&segs[b]));
+            if used + t > budget && b > a {
+                break;
+            }
+            used += t;
+            b += 1;
+        }
+        out.push((a, b));
+        if b >= segs.len() {
+            break;
+        }
+        let mut next = b;
+        while next > a + 1 && segs[b - 1].end - segs[next - 1].start < overlap {
+            next -= 1;
+        }
+        a = next;
+    }
+    out
+}
+
 pub async fn find(
     cfg: &Config,
     t: &Transcript,
@@ -206,54 +247,50 @@ pub async fn find(
     let mut cands = match llm {
         Some(llm) => {
             // Divide a transcrição em blocos que cabem no contexto do modelo.
-            let chunk = if llm.is_local {
-                (cfg.llm_ctx as f64 * 0.075).clamp(240.0, 1500.0)
-            } else {
-                1500.0
-            };
-            let step = (chunk - cfg.max_len).max(chunk * 0.5);
-            let mut windows = Vec::new();
-            let mut w0 = 0.0;
-            loop {
-                windows.push((w0, w0 + chunk));
-                if w0 + chunk >= duration {
-                    break;
-                }
-                w0 += step;
-            }
-            let per =
-                ((max as f64 * chunk / duration.max(1.0)).ceil() as usize + 1).clamp(2, max.max(2));
+            let mut queue: VecDeque<(usize, usize)> =
+                chunks(&segs, llm.input_budget(), cfg.max_len * 0.5).into();
             let mut all = Vec::new();
             let mut errors = Vec::new();
-            for (i, (a, b)) in windows.iter().enumerate() {
+            let mut done = 0usize;
+            while let Some((a, b)) = queue.pop_front() {
                 if cancel.is_cancelled() {
                     bail!("Cancelado");
                 }
+                let total = done + queue.len() + 1;
                 progress(
-                    i as f32 / windows.len() as f32,
-                    &format!("Analisando com IA ({}/{})", i + 1, windows.len()),
+                    done as f32 / total as f32,
+                    &format!("Analisando com IA ({}/{})", done + 1, total),
                 );
-                let lines: Vec<String> = segs
-                    .iter()
-                    .filter(|s| s.start >= *a && s.start < *b)
-                    .map(|s| format!("[{:.1}-{:.1}] {}", s.start, s.end, s.text))
-                    .collect();
-                if lines.len() < 2 {
+                let part = &segs[a..b];
+                if part.len() < 2 {
+                    done += 1;
                     continue;
                 }
+                let span = part[part.len() - 1].end - part[0].start;
+                let per = ((max as f64 * span / duration.max(1.0)).ceil() as usize + 1)
+                    .clamp(2, max.max(2));
+                let lines: Vec<String> = part.iter().map(line).collect();
                 let prompt = user_prompt(cfg, &lines.join("\n"), per);
                 match llm.chat(SYSTEM, &prompt, true).await {
                     Ok(resp) => match extract_json(&resp) {
                         Some(v) => all.extend(parse_candidates(&v)),
                         None => errors.push("resposta da IA sem JSON válido".to_string()),
                     },
+                    // Não coube no contexto: divide o bloco ao meio e tenta de novo
+                    Err(e) if e.is::<ContextOverflow>() && b - a >= 4 => {
+                        let mid = a + (b - a) / 2;
+                        queue.push_front((mid, b));
+                        queue.push_front((a, mid));
+                        continue;
+                    }
                     Err(e) => {
-                        if windows.len() == 1 || errors.len() >= 2 {
+                        if (done == 0 && queue.is_empty()) || errors.len() >= 2 {
                             return Err(e);
                         }
                         errors.push(e.to_string());
                     }
                 }
+                done += 1;
             }
             if all.is_empty() {
                 eprintln!("IA não retornou clipes ({errors:?}); usando heurística");
@@ -339,4 +376,45 @@ fn heuristic(cfg: &Config, segs: &[Segment], max: usize) -> Vec<Candidate> {
         });
     }
     pick(out, max * 3)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn seg(i: usize) -> Segment {
+        let start = i as f64 * 5.0;
+        Segment {
+            start,
+            end: start + 4.5,
+            text: "uma frase de exemplo com várias palavras para testar o tamanho do bloco".into(),
+            first: i,
+            last: i,
+        }
+    }
+
+    #[test]
+    fn blocos_respeitam_o_limite_e_cobrem_tudo() {
+        let segs: Vec<Segment> = (0..2000).map(seg).collect();
+        let budget = 6992; // contexto 8192 menos a reserva
+        let cs = chunks(&segs, budget, 30.0);
+        assert!(cs.len() > 1);
+        assert_eq!(cs[0].0, 0);
+        assert_eq!(cs.last().unwrap().1, segs.len());
+        for w in cs.windows(2) {
+            // sem buracos entre blocos (há sobreposição)
+            assert!(w[1].0 < w[0].1);
+            assert!(w[1].0 > w[0].0);
+        }
+        for &(a, b) in &cs {
+            let tokens: usize = segs[a..b].iter().map(|s| est_tokens(&line(s))).sum();
+            assert!(tokens <= budget, "bloco com {tokens} tokens");
+        }
+    }
+
+    #[test]
+    fn transcricao_curta_vira_um_bloco() {
+        let segs: Vec<Segment> = (0..10).map(seg).collect();
+        assert_eq!(chunks(&segs, 6000, 30.0), vec![(0, 10)]);
+    }
 }

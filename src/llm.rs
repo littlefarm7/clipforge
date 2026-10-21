@@ -8,6 +8,30 @@ use std::time::Duration;
 use tokio::process::Child;
 use tokio_util::sync::CancellationToken;
 
+/// O texto enviado não cabe no contexto do modelo (ou no limite de tokens do provedor).
+#[derive(Debug)]
+pub struct ContextOverflow;
+
+/// Limite de tokens da resposta da IA (a lista de clipes em JSON).
+const RESPONSE_TOKENS: u32 = 1024;
+
+impl std::fmt::Display for ContextOverflow {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("o trecho da transcrição é maior que o contexto do modelo de IA")
+    }
+}
+
+impl std::error::Error for ContextOverflow {}
+
+fn is_context_overflow(body: &str) -> bool {
+    let b = body.to_lowercase();
+    b.contains("exceed_context_size")
+        || b.contains("context_length_exceeded")
+        || b.contains("request too large")
+        || b.contains("reduce the length")
+        || (b.contains("context") && (b.contains("exceed") || b.contains("too long") || b.contains("maximum")))
+}
+
 pub struct Llm {
     base: String,
     key: String,
@@ -16,6 +40,8 @@ pub struct Llm {
     /// Mantém o llama-server vivo enquanto o cliente existir.
     _server: Option<Child>,
     pub is_local: bool,
+    /// Tamanho do contexto do modelo local (tokens)
+    pub ctx: u32,
 }
 
 impl Llm {
@@ -32,10 +58,22 @@ impl Llm {
                     client: crate::models::http_client(),
                     _server: None,
                     is_local: false,
+                    ctx: 0,
                 }))
             }
             "local" => Ok(Some(start_local(cfg, cancel).await?)),
             _ => Ok(None),
+        }
+    }
+
+    /// Quantos tokens de transcrição cabem em um pedido.
+    pub fn input_budget(&self) -> usize {
+        if self.is_local {
+            // Reserva espaço para as instruções e para a resposta
+            (self.ctx as usize).saturating_sub(RESPONSE_TOKENS as usize + 1200).max(800)
+        } else {
+            // Planos gratuitos (ex.: Groq) limitam os tokens por minuto; blocos menores evitam recusas
+            6000
         }
     }
 
@@ -44,6 +82,7 @@ impl Llm {
         let mut body = json!({
             "model": self.model,
             "temperature": 0.3,
+            "max_tokens": RESPONSE_TOKENS,
             "messages": [
                 {"role": "system", "content": system},
                 {"role": "user", "content": user}
@@ -77,6 +116,9 @@ impl Llm {
                 return Ok(content);
             }
             let text = resp.text().await.unwrap_or_default();
+            if matches!(st.as_u16(), 400 | 413) && is_context_overflow(&text) {
+                return Err(ContextOverflow.into());
+            }
             // Alguns provedores não aceitam response_format: tenta de novo sem ele.
             if st.as_u16() == 400 && body.get("response_format").is_some() {
                 body.as_object_mut().unwrap().remove("response_format");
@@ -160,6 +202,7 @@ async fn start_local(cfg: &Config, cancel: &CancellationToken) -> Result<Llm> {
         client,
         _server: Some(child),
         is_local: true,
+        ctx: cfg.llm_ctx.max(2048),
     })
 }
 
@@ -175,4 +218,26 @@ pub fn extract_json(s: &str) -> Option<serde_json::Value> {
         return None;
     }
     serde_json::from_str(&s[start..=end]).ok()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_context_overflow;
+
+    #[test]
+    fn reconhece_erro_de_contexto() {
+        // Erro real do llama-server
+        assert!(is_context_overflow(
+            r#"{"error":{"code":400,"message":"request (9901 tokens) exceeds the available context size (8192 tokens), try increasing it","type":"exceed_context_size_error","n_prompt_tokens":9901,"n_ctx":8192}}"#
+        ));
+        // OpenAI
+        assert!(is_context_overflow(
+            r#"{"error":{"message":"This model's maximum context length is 8192 tokens","code":"context_length_exceeded"}}"#
+        ));
+        // Groq (limite de tokens por minuto)
+        assert!(is_context_overflow(
+            r#"{"error":{"message":"Request too large for model on tokens per minute (TPM): Limit 12000, Requested 15000"}}"#
+        ));
+        assert!(!is_context_overflow(r#"{"error":{"message":"Invalid API key"}}"#));
+    }
 }
