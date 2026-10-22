@@ -1,6 +1,6 @@
 [package]
 name = "clipforge"
-version = "0.2.1"
+version = "0.3.0"
 edition = "2024"
 description = "Gerador de clipes curtos e virais a partir de vídeos longos, local e gratuito"
 license = "MIT"

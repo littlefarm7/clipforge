@@ -41,32 +41,16 @@ fn ass_escape(s: &str) -> String {
     s.replace('\\', "＼").replace('{', "(").replace('}', ")")
 }
 
-/// Gera legendas estilo "karaokê" (grupos curtos com a palavra atual destacada)
-/// e, opcionalmente, o título do clipe fixo na parte superior.
-pub fn build_ass(
-    cfg: &Config,
-    words: &[Word],
-    start: f64,
-    end: f64,
-    w: u32,
-    h: u32,
-    title: Option<&str>,
-) -> String {
+/// Gera legendas estilo "karaokê": grupos curtos com a palavra atual destacada.
+pub fn build_ass(cfg: &Config, words: &[Word], start: f64, end: f64, w: u32, h: u32) -> String {
     let scale = w.min(h) as f64 / 1080.0;
     let size = (cfg.sub_size as f64 * scale).round();
     let vertical = h > w;
     let (align, margin_v) = match cfg.sub_position.as_str() {
         "middle" => (5, 0.0),
-        // Com título no topo, as legendas descem para não encostar nele
-        "top" if title.is_some() => (8, h as f64 * if vertical { 0.26 } else { 0.30 }),
         "top" => (8, h as f64 * 0.12),
         _ => (2, h as f64 * if vertical { 0.20 } else { 0.10 }),
     };
-    // Título: texto branco em caixa escura translúcida, abaixo da barra superior dos apps
-    let t_size = (if vertical { 66.0 } else { 52.0 } * scale).round();
-    let t_pad = (t_size * 0.30).round();
-    let t_mv = (h as f64 * if vertical { 0.085 } else { 0.06 }).round();
-    let t_ml = (w as f64 * if vertical { 0.08 } else { 0.16 }).round();
     let (font, bold) = match cfg.sub_font.as_str() {
         "Poppins" => ("Poppins", -1),
         "Anton" => ("Anton", 0),
@@ -78,27 +62,13 @@ pub fn build_ass(
         s,
         "[Script Info]\nScriptType: v4.00+\nPlayResX: {w}\nPlayResY: {h}\nWrapStyle: 0\nScaledBorderAndShadow: yes\n\n\
 [V4+ Styles]\nFormat: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n\
-Style: Default,{font},{size},{primary},&H000000FF&,&H00000000&,&H96000000&,{bold},0,0,0,100,100,1,0,1,{outline},{shadow},{align},{ml},{ml},{mv},1\n\
-Style: Title,Poppins,{t_size},&H00FFFFFF&,&H000000FF&,&H38000000&,&H00000000&,-1,0,0,0,100,100,0,0,3,{t_pad},0,8,{t_ml},{t_ml},{t_mv},1\n\n\
+Style: Default,{font},{size},{primary},&H000000FF&,&H00000000&,&H96000000&,{bold},0,0,0,100,100,1,0,1,{outline},{shadow},{align},{ml},{ml},{mv},1\n\n\
 [Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n",
         primary = ass_color(&cfg.sub_color),
         shadow = (outline * 0.6).round(),
         ml = (w as f64 * 0.08).round(),
         mv = margin_v.round(),
     );
-    if let Some(t) = title {
-        // Entra com um leve "pop" e fica fixo durante todo o clipe
-        let _ = writeln!(
-            s,
-            "Dialogue: 1,{},{},Title,,0,0,0,,{{\\fad(350,0)\\fscx90\\fscy90\\t(0,300,\\fscx100\\fscy100)}}{}",
-            ass_time(0.0),
-            ass_time(end - start + 1.0),
-            ass_escape(t)
-        );
-    }
-    if !cfg.subtitles {
-        return s;
-    }
     let hl = ass_color(&cfg.sub_highlight);
     let words: Vec<Word> = words
         .iter()
@@ -184,7 +154,6 @@ pub struct RenderJob<'a> {
     pub transcript: &'a Transcript,
     pub work: &'a Path,
     pub name: &'a str,
-    pub title: &'a str,
     pub start: f64,
     pub end: f64,
 }
@@ -272,11 +241,9 @@ pub async fn render(
         };
     }
 
-    let title = job.title.trim();
-    let title = (cfg.title_overlay && !title.is_empty()).then_some(title);
-    if (cfg.subtitles && !job.transcript.words.is_empty()) || title.is_some() {
+    if cfg.subtitles && !job.transcript.words.is_empty() {
         let ass_name = format!("{}.ass", job.name);
-        let ass = build_ass(cfg, &job.transcript.words, job.start, job.end, w, h, title);
+        let ass = build_ass(cfg, &job.transcript.words, job.start, job.end, w, h);
         tokio::fs::write(job.work.join(&ass_name), ass).await?;
         let _ = write!(
             graph,

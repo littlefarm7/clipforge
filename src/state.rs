@@ -41,6 +41,8 @@ pub struct Project {
     pub stage: String,
     pub progress: f32,
     pub error: Option<String>,
+    /// Aviso que não impede o resultado (ex.: menos clipes que o pedido)
+    pub notice: Option<String>,
     pub duration: f64,
     pub language: String,
     pub clips: Vec<Clip>,

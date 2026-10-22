@@ -202,6 +202,7 @@ async fn run_full(app: &App, id: &str, cancel: &CancellationToken) -> Result<()>
     app.update(id, true, |p| {
         p.status = "running".into();
         p.error = None;
+        p.notice = None;
     });
     let project = app.get(id).context("projeto não existe")?;
 
@@ -281,7 +282,18 @@ async fn run_full(app: &App, id: &str, cancel: &CancellationToken) -> Result<()>
         })
         .collect();
     let n = clips.len();
-    app.update(id, true, |p| p.clips = clips);
+    let wanted = cfg.max_clips.max(1) as usize;
+    let notice = (n < wanted).then(|| {
+        format!(
+            "Foram encontrados {n} de {wanted} clipes: o vídeo não tem trechos suficientes de {:.0}–{:.0} s \
+sem repetir conteúdo. Diminua a duração mínima para obter mais clipes.",
+            cfg.min_len, cfg.max_len
+        )
+    });
+    app.update(id, true, |p| {
+        p.clips = clips;
+        p.notice = notice;
+    });
 
     // 4. Renderização
     for i in 0..n {
@@ -350,7 +362,6 @@ async fn render_one(
         transcript,
         work: dir,
         name: &clip.name,
-        title: &clip.title,
         start: clip.start,
         end: clip.end,
     };

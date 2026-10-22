@@ -12,8 +12,9 @@ use tokio_util::sync::CancellationToken;
 #[derive(Debug)]
 pub struct ContextOverflow;
 
-/// Limite de tokens da resposta da IA (a lista de clipes em JSON).
-const RESPONSE_TOKENS: u32 = 1024;
+/// Tokens reservados para a resposta do modelo local (lista de clipes em JSON).
+/// Para APIs não há limite fixo: modelos que "pensam" antes de responder precisam de folga.
+const LOCAL_RESPONSE_TOKENS: u32 = 2048;
 
 impl std::fmt::Display for ContextOverflow {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -29,7 +30,8 @@ fn is_context_overflow(body: &str) -> bool {
         || b.contains("context_length_exceeded")
         || b.contains("request too large")
         || b.contains("reduce the length")
-        || (b.contains("context") && (b.contains("exceed") || b.contains("too long") || b.contains("maximum")))
+        || (b.contains("context")
+            && (b.contains("exceed") || b.contains("too long") || b.contains("maximum")))
 }
 
 pub struct Llm {
@@ -40,8 +42,10 @@ pub struct Llm {
     /// Mantém o llama-server vivo enquanto o cliente existir.
     _server: Option<Child>,
     pub is_local: bool,
-    /// Tamanho do contexto do modelo local (tokens)
+    /// Tamanho real do contexto do modelo local (tokens)
     pub ctx: u32,
+    /// Endereço raiz do llama-server local (para /tokenize)
+    root: Option<String>,
 }
 
 impl Llm {
@@ -59,6 +63,7 @@ impl Llm {
                     _server: None,
                     is_local: false,
                     ctx: 0,
+                    root: None,
                 }))
             }
             "local" => Ok(Some(start_local(cfg, cancel).await?)),
@@ -69,12 +74,48 @@ impl Llm {
     /// Quantos tokens de transcrição cabem em um pedido.
     pub fn input_budget(&self) -> usize {
         if self.is_local {
-            // Reserva espaço para as instruções e para a resposta
-            (self.ctx as usize).saturating_sub(RESPONSE_TOKENS as usize + 1200).max(800)
+            // Reserva espaço para as instruções (~700 tokens) e para a resposta
+            (self.ctx as usize)
+                .saturating_sub(LOCAL_RESPONSE_TOKENS as usize + 700)
+                .max(600)
         } else {
             // Planos gratuitos (ex.: Groq) limitam os tokens por minuto; blocos menores evitam recusas
             6000
         }
+    }
+
+    /// Maior pedido (instruções + transcrição) aceito pelo modelo local.
+    pub fn prompt_limit(&self) -> usize {
+        (self.ctx as usize).saturating_sub(LOCAL_RESPONSE_TOKENS as usize + 32)
+    }
+
+    /// Conta os tokens com o tokenizador do próprio modelo (só no modelo local).
+    pub async fn count_tokens(&self, text: &str) -> Option<usize> {
+        let root = self.root.as_ref()?;
+        let r = self
+            .client
+            .post(format!("{root}/tokenize"))
+            .json(&json!({ "content": text }))
+            .timeout(Duration::from_secs(120))
+            .send()
+            .await
+            .ok()?;
+        let v: serde_json::Value = r.json().await.ok()?;
+        Some(v["tokens"].as_array()?.len())
+    }
+
+    /// Quantos caracteres cabem, em média, em um token deste modelo para este texto.
+    /// No modelo local é medido; nas APIs usa um valor conservador.
+    pub async fn chars_per_token(&self, sample: &str) -> f64 {
+        let chars = sample.chars().count();
+        if chars > 200
+            && let Some(n) = self.count_tokens(sample).await
+            && n > 0
+        {
+            // 10% de margem de segurança
+            return (chars as f64 / n as f64 * 0.9).clamp(0.8, 5.0);
+        }
+        2.5
     }
 
     pub async fn chat(&self, system: &str, user: &str, want_json: bool) -> Result<String> {
@@ -82,7 +123,6 @@ impl Llm {
         let mut body = json!({
             "model": self.model,
             "temperature": 0.3,
-            "max_tokens": RESPONSE_TOKENS,
             "messages": [
                 {"role": "system", "content": system},
                 {"role": "user", "content": user}
@@ -90,6 +130,9 @@ impl Llm {
         });
         if want_json {
             body["response_format"] = json!({"type": "json_object"});
+        }
+        if self.is_local {
+            body["max_tokens"] = json!(LOCAL_RESPONSE_TOKENS);
         }
         let mut tries = 0;
         loop {
@@ -116,7 +159,7 @@ impl Llm {
                 return Ok(content);
             }
             let text = resp.text().await.unwrap_or_default();
-            if matches!(st.as_u16(), 400 | 413) && is_context_overflow(&text) {
+            if is_context_overflow(&text) {
                 return Err(ContextOverflow.into());
             }
             // Alguns provedores não aceitam response_format: tenta de novo sem ele.
@@ -195,34 +238,116 @@ async fn start_local(cfg: &Config, cancel: &CancellationToken) -> Result<Llm> {
         }
         tokio::time::sleep(Duration::from_millis(500)).await;
     }
+    // O llama-server pode reduzir o contexto para caber na memória: usa o valor real
+    let root = format!("http://127.0.0.1:{port}");
+    let mut ctx = cfg.llm_ctx.max(2048);
+    if let Ok(r) = client.get(format!("{root}/props")).send().await
+        && let Ok(v) = r.json::<serde_json::Value>().await
+        && let Some(n) = v["default_generation_settings"]["n_ctx"]
+            .as_u64()
+            .or_else(|| v["n_ctx"].as_u64())
+        && n > 0
+    {
+        ctx = n as u32;
+    }
     Ok(Llm {
-        base: format!("http://127.0.0.1:{port}/v1"),
+        base: format!("{root}/v1"),
         key: String::new(),
         model: "local".into(),
         client,
         _server: Some(child),
         is_local: true,
-        ctx: cfg.llm_ctx.max(2048),
+        ctx,
+        root: Some(root),
     })
 }
 
-/// Extrai o primeiro objeto JSON de um texto (o modelo às vezes adiciona comentários).
+/// Remove o raciocínio de modelos que "pensam" antes de responder (<think>...</think>).
+fn strip_thinking(s: &str) -> &str {
+    match (s.find("<think>"), s.rfind("</think>")) {
+        (_, Some(end)) => &s[end + "</think>".len()..],
+        // Raciocínio sem fim (resposta cortada): não há JSON aproveitável depois dele
+        (Some(_), None) => "",
+        _ => s,
+    }
+}
+
+/// Posição do `}` que fecha o `{` em `open`, respeitando textos entre aspas.
+fn matching_brace(s: &[u8], open: usize) -> Option<usize> {
+    let mut depth = 0usize;
+    let mut in_str = false;
+    let mut escaped = false;
+    for (i, &c) in s.iter().enumerate().skip(open) {
+        if in_str {
+            match c {
+                _ if escaped => escaped = false,
+                b'\\' => escaped = true,
+                b'"' => in_str = false,
+                _ => {}
+            }
+            continue;
+        }
+        match c {
+            b'"' => in_str = true,
+            b'{' => depth += 1,
+            b'}' => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(i);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+/// Extrai o JSON da resposta do modelo. Aceita texto em volta, blocos ```json,
+/// raciocínio <think> e respostas cortadas no meio (aproveita os clipes completos).
 pub fn extract_json(s: &str) -> Option<serde_json::Value> {
-    let s = s.trim();
+    let s = strip_thinking(s).trim();
     if let Ok(v) = serde_json::from_str(s) {
         return Some(v);
     }
-    let start = s.find(['{', '['])?;
-    let end = s.rfind(['}', ']'])?;
-    if end <= start {
-        return None;
+    if let (Some(start), Some(end)) = (s.find(['{', '[']), s.rfind(['}', ']']))
+        && end > start
+        && let Ok(v) = serde_json::from_str(&s[start..=end])
+    {
+        return Some(v);
     }
-    serde_json::from_str(&s[start..=end]).ok()
+    // Resposta incompleta: recolhe cada objeto de clipe que esteja inteiro
+    let bytes = s.as_bytes();
+    let mut clips = Vec::new();
+    let mut i = 0;
+    while let Some(pos) = s[i..].find('{') {
+        let open = i + pos;
+        match matching_brace(bytes, open) {
+            Some(close) => match serde_json::from_str::<serde_json::Value>(&s[open..=close]) {
+                Ok(v) if v.get("start").is_some() => {
+                    clips.push(v);
+                    i = close + 1;
+                }
+                _ => i = open + 1,
+            },
+            None => i = open + 1,
+        }
+    }
+    (!clips.is_empty()).then_some(serde_json::Value::Array(clips))
 }
 
 #[cfg(test)]
 mod tests {
-    use super::is_context_overflow;
+    use super::{extract_json, is_context_overflow};
+
+    #[test]
+    fn le_json_com_raciocinio_e_resposta_cortada() {
+        let v = extract_json("<think>vou escolher {start} e {end}</think>\n```json\n{\"clips\":[{\"start\":1,\"end\":30}]}\n```").unwrap();
+        assert_eq!(v["clips"][0]["end"], 30);
+        // Cortada no meio do terceiro clipe: aproveita os dois primeiros
+        let v = extract_json(r#"{"clips":[{"start":1,"end":30,"title":"a {b}"},{"start":40,"end":80,"title":"c"},{"start":90,"en"#).unwrap();
+        assert_eq!(v.as_array().unwrap().len(), 2);
+        assert!(extract_json("<think>pensando sem fim {").is_none());
+    }
 
     #[test]
     fn reconhece_erro_de_contexto() {
@@ -238,6 +363,8 @@ mod tests {
         assert!(is_context_overflow(
             r#"{"error":{"message":"Request too large for model on tokens per minute (TPM): Limit 12000, Requested 15000"}}"#
         ));
-        assert!(!is_context_overflow(r#"{"error":{"message":"Invalid API key"}}"#));
+        assert!(!is_context_overflow(
+            r#"{"error":{"message":"Invalid API key"}}"#
+        ));
     }
 }

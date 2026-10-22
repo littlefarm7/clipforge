@@ -44,8 +44,6 @@ pub struct Config {
     pub sub_position: String,
     pub sub_uppercase: bool,
     pub words_per_line: u32,
-    /// Título viral fixo na parte inferior do clipe
-    pub title_overlay: bool,
 
     /// 0 = automático
     pub threads: u32,
@@ -57,20 +55,20 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             stt_provider: "local".into(),
-            whisper_model: "ggml-base.bin".into(),
+            whisper_model: "ggml-small.bin".into(),
             language: "auto".into(),
             stt_api_base: "https://api.groq.com/openai/v1".into(),
             stt_api_key: String::new(),
             stt_api_model: "whisper-large-v3-turbo".into(),
-            llm_provider: "none".into(),
+            llm_provider: "local".into(),
             llm_api_base: "https://api.groq.com/openai/v1".into(),
             llm_api_key: String::new(),
             llm_api_model: "llama-3.3-70b-versatile".into(),
-            llm_local_model: String::new(),
+            llm_local_model: "qwen2.5-3b-instruct-q4_k_m.gguf".into(),
             llm_ctx: 8192,
             extra_prompt: String::new(),
             max_clips: 6,
-            min_len: 20.0,
+            min_len: 30.0,
             max_len: 60.0,
             aspect: "9:16".into(),
             crop_mode: "face".into(),
@@ -83,7 +81,6 @@ impl Default for Config {
             sub_position: "bottom".into(),
             sub_uppercase: true,
             words_per_line: 3,
-            title_overlay: true,
             threads: 0,
             ytdlp_args: String::new(),
         }

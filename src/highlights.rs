@@ -2,10 +2,10 @@
 
 use crate::config::Config;
 use crate::llm::{ContextOverflow, Llm, extract_json};
-use std::collections::VecDeque;
 use crate::transcribe::{Segment, Transcript};
 use anyhow::{Result, bail};
 use serde_json::Value;
+use std::collections::VecDeque;
 use tokio_util::sync::CancellationToken;
 
 #[derive(Debug, Clone)]
@@ -23,7 +23,7 @@ Um bom clipe: começa com um gancho forte nos primeiros 3 segundos, faz sentido 
 tem uma ideia completa (começo, meio e fim), e traz emoção, humor, polêmica, uma revelação, uma dica valiosa ou uma história marcante. \
 Nunca comece um clipe no meio de uma frase. Responda SOMENTE com JSON válido.";
 
-fn user_prompt(cfg: &Config, lines: &str, n: usize) -> String {
+fn user_prompt(cfg: &Config, lines: &str, n: usize, exclude: &[(f64, f64)]) -> String {
     let extra = if cfg.extra_prompt.trim().is_empty() {
         String::new()
     } else {
@@ -32,17 +32,30 @@ fn user_prompt(cfg: &Config, lines: &str, n: usize) -> String {
             cfg.extra_prompt.trim()
         )
     };
+    let taken = if exclude.is_empty() {
+        String::new()
+    } else {
+        let list: Vec<String> = exclude
+            .iter()
+            .map(|(a, b)| format!("[{}-{}]", a.floor() as u64, b.ceil() as u64))
+            .collect();
+        format!(
+            "- Estes trechos JÁ foram escolhidos; não os repita nem se sobreponha a eles: {}\n",
+            list.join(", ")
+        )
+    };
     format!(
         "Transcrição (cada linha: [início-fim em segundos] texto):\n{lines}\n\n\
-Escolha até {n} clipes. Regras:\n\
+Escolha EXATAMENTE {n} clipes diferentes desta transcrição. Mesmo que nem todos sejam excelentes, \
+devolva {n} clipes, ordenando pela qualidade com a nota (\"score\"). Regras:\n\
 - Cada clipe deve durar entre {min:.0} e {max:.0} segundos.\n\
 - \"start\" deve ser o início de uma linha e \"end\" o fim de uma linha, usando exatamente os números mostrados.\n\
-- Os clipes não podem se sobrepor.\n\
+- Os clipes não podem se sobrepor.\n{taken}\
 - \"title\": título viral em forma de gancho (máx. 55 caracteres), que desperte curiosidade sobre o assunto do clipe, \
 no MESMO idioma da transcrição. Ex.: \"Ninguém te conta isso sobre dinheiro\", \"O erro que quase acabou com tudo\". Sem hashtags nem emojis.\n\
 - \"score\": nota de 0 a 100 do potencial viral.\n\
 - \"reason\": uma frase curta explicando por que o trecho é bom.\n{extra}\n\
-Formato da resposta:\n\
+Responda só com o JSON, neste formato:\n\
 {{\"clips\":[{{\"start\":12,\"end\":49,\"title\":\"...\",\"score\":87,\"reason\":\"...\"}}]}}",
         min = cfg.min_len,
         max = cfg.max_len,
@@ -181,24 +194,34 @@ fn fallback_title(t: &Transcript, c: &Candidate) -> String {
 /// Linha da transcrição enviada à IA. Segundos inteiros economizam tokens;
 /// os limites são reajustados às frases depois (função `snap`).
 fn line(s: &Segment) -> String {
-    format!("[{}-{}] {}", s.start.floor() as u64, s.end.ceil() as u64, s.text)
+    format!(
+        "[{}-{}] {}",
+        s.start.floor() as u64,
+        s.end.ceil() as u64,
+        s.text
+    )
 }
 
-/// Estimativa conservadora de tokens: ≈3 caracteres por token (português com números).
-fn est_tokens(s: &str) -> usize {
-    s.chars().count() / 3 + 2
+/// Estimativa de tokens a partir de quantos caracteres cabem em um token.
+fn est_tokens(s: &str, chars_per_token: f64) -> usize {
+    (s.chars().count() as f64 / chars_per_token).ceil() as usize + 1
 }
 
 /// Divide as frases em blocos [início, fim) que cabem em `budget` tokens.
 /// Blocos vizinhos se sobrepõem por `overlap` segundos para não perder trechos na fronteira.
-fn chunks(segs: &[Segment], budget: usize, overlap: f64) -> Vec<(usize, usize)> {
+fn chunks(
+    segs: &[Segment],
+    budget: usize,
+    chars_per_token: f64,
+    overlap: f64,
+) -> Vec<(usize, usize)> {
     let mut out = Vec::new();
     let mut a = 0;
     while a < segs.len() {
         let mut b = a;
         let mut used = 0;
         while b < segs.len() {
-            let t = est_tokens(&line(&segs[b]));
+            let t = est_tokens(&line(&segs[b]), chars_per_token);
             if used + t > budget && b > a {
                 break;
             }
@@ -218,18 +241,126 @@ fn chunks(segs: &[Segment], budget: usize, overlap: f64) -> Vec<(usize, usize)> 
     out
 }
 
+/// Ajusta os candidatos às frases e à duração do vídeo.
+fn finish(
+    mut cands: Vec<Candidate>,
+    segs: &[Segment],
+    cfg: &Config,
+    duration: f64,
+) -> Vec<Candidate> {
+    for c in cands.iter_mut() {
+        c.start = c.start.clamp(0.0, duration);
+        c.end = c.end.clamp(0.0, duration);
+        snap(c, segs, cfg);
+        c.end = c.end.min(duration);
+    }
+    cands.retain(|c| c.end - c.start >= 3.0);
+    cands
+}
+
+/// Acrescenta a `chosen` os melhores candidatos de `extra` que não se sobrepõem, até `target`.
+fn fill(chosen: &mut Vec<Candidate>, mut extra: Vec<Candidate>, target: usize) {
+    extra.sort_by_key(|c| std::cmp::Reverse(c.score));
+    for c in extra {
+        if chosen.len() >= target {
+            break;
+        }
+        if chosen.iter().all(|o| overlap(o, &c) < 0.15) {
+            chosen.push(c);
+        }
+    }
+}
+
+/// Pede clipes à IA bloco a bloco. Blocos que não cabem no contexto são divididos ao meio.
+/// `per_block` diz quantos clipes pedir em cada bloco; `exclude` lista trechos já escolhidos.
+#[allow(clippy::too_many_arguments)]
+async fn ask_blocks(
+    llm: &Llm,
+    cfg: &Config,
+    segs: &[Segment],
+    blocks: Vec<(usize, usize)>,
+    per_block: &(dyn Fn(f64) -> usize + Sync),
+    exclude: &[(f64, f64)],
+    cancel: &CancellationToken,
+    progress: &mut (dyn FnMut(f32, &str) + Send),
+    label: &str,
+) -> Result<(Vec<Candidate>, Vec<String>)> {
+    let mut queue: VecDeque<(usize, usize)> = blocks.into();
+    let mut found = Vec::new();
+    let mut errors = Vec::new();
+    let mut done = 0usize;
+    while let Some((a, b)) = queue.pop_front() {
+        if cancel.is_cancelled() {
+            bail!("Cancelado");
+        }
+        let total = done + queue.len() + 1;
+        progress(
+            done as f32 / total as f32,
+            &format!("{label} ({}/{})", done + 1, total),
+        );
+        let part = &segs[a..b];
+        let span = part[part.len() - 1].end - part[0].start;
+        if part.len() < 2 || span < cfg.min_len * 0.8 {
+            done += 1;
+            continue;
+        }
+        let ex: Vec<(f64, f64)> = exclude
+            .iter()
+            .copied()
+            .filter(|(s, e)| *e > part[0].start && *s < part[part.len() - 1].end)
+            .collect();
+        let lines: Vec<String> = part.iter().map(line).collect();
+        let prompt = user_prompt(cfg, &lines.join("\n"), per_block(span), &ex);
+        // No modelo local, confere o tamanho exato antes de enviar
+        let too_big = if llm.is_local {
+            match llm.count_tokens(&format!("{SYSTEM}\n{prompt}")).await {
+                Some(n) => n > llm.prompt_limit(),
+                None => false,
+            }
+        } else {
+            false
+        };
+        let res = if too_big {
+            Err(ContextOverflow.into())
+        } else {
+            llm.chat(SYSTEM, &prompt, true).await
+        };
+        match res {
+            Ok(resp) => match extract_json(&resp) {
+                Some(v) => found.extend(parse_candidates(&v)),
+                None => errors.push("a IA respondeu sem a lista de clipes em JSON".to_string()),
+            },
+            // Não coube no contexto: divide o bloco ao meio e tenta de novo
+            Err(e) if e.is::<ContextOverflow>() => {
+                if b - a >= 2 {
+                    let mid = a + (b - a) / 2;
+                    queue.push_front((mid, b));
+                    queue.push_front((a, mid));
+                    continue;
+                }
+                errors.push(e.to_string());
+            }
+            Err(e) => errors.push(format!("{e:#}")),
+        }
+        done += 1;
+    }
+    Ok((found, errors))
+}
+
 pub async fn find(
     cfg: &Config,
     t: &Transcript,
     duration: f64,
     cancel: &CancellationToken,
-    mut progress: impl FnMut(f32, &str),
+    mut progress: impl FnMut(f32, &str) + Send,
 ) -> Result<Vec<Candidate>> {
     let segs = t.segments();
     if segs.is_empty() {
         bail!("Nenhuma fala foi encontrada no vídeo.");
     }
-    let max = cfg.max_clips.max(1) as usize;
+    // Quantos clipes sem sobreposição cabem no vídeo
+    let feasible = ((duration / cfg.min_len.max(5.0)).floor() as usize).max(1);
+    let target = (cfg.max_clips.max(1) as usize).min(feasible);
     let llm = match cfg.llm_provider.as_str() {
         "none" | "" => None,
         _ => {
@@ -244,75 +375,84 @@ pub async fn find(
             Llm::from_config(cfg, cancel).await?
         }
     };
-    let mut cands = match llm {
-        Some(llm) => {
-            // Divide a transcrição em blocos que cabem no contexto do modelo.
-            let mut queue: VecDeque<(usize, usize)> =
-                chunks(&segs, llm.input_budget(), cfg.max_len * 0.5).into();
-            let mut all = Vec::new();
-            let mut errors = Vec::new();
-            let mut done = 0usize;
-            while let Some((a, b)) = queue.pop_front() {
-                if cancel.is_cancelled() {
-                    bail!("Cancelado");
-                }
-                let total = done + queue.len() + 1;
-                progress(
-                    done as f32 / total as f32,
-                    &format!("Analisando com IA ({}/{})", done + 1, total),
-                );
-                let part = &segs[a..b];
-                if part.len() < 2 {
-                    done += 1;
-                    continue;
-                }
-                let span = part[part.len() - 1].end - part[0].start;
-                let per = ((max as f64 * span / duration.max(1.0)).ceil() as usize + 1)
-                    .clamp(2, max.max(2));
-                let lines: Vec<String> = part.iter().map(line).collect();
-                let prompt = user_prompt(cfg, &lines.join("\n"), per);
-                match llm.chat(SYSTEM, &prompt, true).await {
-                    Ok(resp) => match extract_json(&resp) {
-                        Some(v) => all.extend(parse_candidates(&v)),
-                        None => errors.push("resposta da IA sem JSON válido".to_string()),
-                    },
-                    // Não coube no contexto: divide o bloco ao meio e tenta de novo
-                    Err(e) if e.is::<ContextOverflow>() && b - a >= 4 => {
-                        let mid = a + (b - a) / 2;
-                        queue.push_front((mid, b));
-                        queue.push_front((a, mid));
-                        continue;
-                    }
-                    Err(e) => {
-                        if (done == 0 && queue.is_empty()) || errors.len() >= 2 {
-                            return Err(e);
-                        }
-                        errors.push(e.to_string());
-                    }
-                }
-                done += 1;
+    let mut chosen: Vec<Candidate> = Vec::new();
+    if let Some(llm) = llm {
+        // Mede o tamanho dos tokens deste modelo com um pedaço da própria transcrição
+        let sample: String = segs
+            .iter()
+            .take(120)
+            .map(line)
+            .collect::<Vec<_>>()
+            .join("\n");
+        let cpt = llm.chars_per_token(&sample).await;
+        let blocks = chunks(&segs, llm.input_budget(), cpt, cfg.max_len * 0.5);
+        // Cada bloco recebe uma parte proporcional dos clipes, com folga para a IA escolher
+        let per_block = |span: f64| {
+            ((target as f64 * span / duration.max(1.0)).ceil() as usize + 2).clamp(2, target + 2)
+        };
+        let (found, mut errors) = ask_blocks(
+            &llm,
+            cfg,
+            &segs,
+            blocks.clone(),
+            &per_block,
+            &[],
+            cancel,
+            &mut progress,
+            "Analisando com IA",
+        )
+        .await?;
+        if found.is_empty() && !errors.is_empty() {
+            bail!("a IA não conseguiu analisar o vídeo: {}", errors[0]);
+        }
+        fill(&mut chosen, finish(found, &segs, cfg, duration), target);
+
+        // Rodadas extras: se faltaram clipes, pede trechos diferentes dos já escolhidos
+        for _ in 0..2 {
+            if chosen.len() >= target {
+                break;
             }
-            if all.is_empty() {
-                eprintln!("IA não retornou clipes ({errors:?}); usando heurística");
-                heuristic(cfg, &segs, max)
-            } else {
-                all
+            let before = chosen.len();
+            let need = target - chosen.len();
+            let taken: Vec<(f64, f64)> = chosen.iter().map(|c| (c.start, c.end)).collect();
+            let per_more = |span: f64| {
+                ((need as f64 * span / duration.max(1.0)).ceil() as usize + 1).clamp(1, need + 1)
+            };
+            let (more, errs) = ask_blocks(
+                &llm,
+                cfg,
+                &segs,
+                blocks.clone(),
+                &per_more,
+                &taken,
+                cancel,
+                &mut progress,
+                "Buscando mais trechos",
+            )
+            .await?;
+            errors.extend(errs);
+            fill(&mut chosen, finish(more, &segs, cfg, duration), target);
+            if chosen.len() == before {
+                break;
             }
         }
-        None => heuristic(cfg, &segs, max),
-    };
-    for c in cands.iter_mut() {
-        c.start = c.start.clamp(0.0, duration);
-        c.end = c.end.clamp(0.0, duration);
-        snap(c, &segs, cfg);
-        c.end = c.end.min(duration);
+        if !errors.is_empty() {
+            eprintln!("avisos da IA: {errors:?}");
+        }
+    }
+    // Completa com a heurística quando a IA não trouxe trechos suficientes (ou está desligada)
+    if chosen.len() < target {
+        let extra = finish(heuristic(cfg, &segs, target), &segs, cfg, duration);
+        fill(&mut chosen, extra, target);
+    }
+    for c in chosen.iter_mut() {
         if c.title.is_empty() {
             c.title = fallback_title(t, c);
         }
     }
-    cands.retain(|c| c.end - c.start >= 3.0);
+    chosen.sort_by_key(|c| std::cmp::Reverse(c.score));
     progress(1.0, "Trechos escolhidos");
-    Ok(pick(cands, max))
+    Ok(chosen)
 }
 
 /// Sem IA: pontua janelas por densidade de fala, perguntas/exclamações e pausas naturais.
@@ -375,7 +515,7 @@ fn heuristic(cfg: &Config, segs: &[Segment], max: usize) -> Vec<Candidate> {
             reason: "Escolhido automaticamente (sem IA) pela densidade e ritmo da fala.".into(),
         });
     }
-    pick(out, max * 3)
+    pick(out, max * 4)
 }
 
 #[cfg(test)]
@@ -396,8 +536,8 @@ mod tests {
     #[test]
     fn blocos_respeitam_o_limite_e_cobrem_tudo() {
         let segs: Vec<Segment> = (0..2000).map(seg).collect();
-        let budget = 6992; // contexto 8192 menos a reserva
-        let cs = chunks(&segs, budget, 30.0);
+        let budget = 5400; // contexto 8192 menos a reserva
+        let cs = chunks(&segs, budget, 1.3, 30.0);
         assert!(cs.len() > 1);
         assert_eq!(cs[0].0, 0);
         assert_eq!(cs.last().unwrap().1, segs.len());
@@ -407,7 +547,7 @@ mod tests {
             assert!(w[1].0 > w[0].0);
         }
         for &(a, b) in &cs {
-            let tokens: usize = segs[a..b].iter().map(|s| est_tokens(&line(s))).sum();
+            let tokens: usize = segs[a..b].iter().map(|s| est_tokens(&line(s), 1.3)).sum();
             assert!(tokens <= budget, "bloco com {tokens} tokens");
         }
     }
@@ -415,6 +555,6 @@ mod tests {
     #[test]
     fn transcricao_curta_vira_um_bloco() {
         let segs: Vec<Segment> = (0..10).map(seg).collect();
-        assert_eq!(chunks(&segs, 6000, 30.0), vec![(0, 10)]);
+        assert_eq!(chunks(&segs, 6000, 2.5, 30.0), vec![(0, 10)]);
     }
 }
