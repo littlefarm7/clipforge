@@ -41,11 +41,13 @@ pub async fn worker(app: App, mut rx: mpsc::UnboundedReceiver<Job>) {
                     } else {
                         "error".into()
                     };
+                    let raw = format!("{e:#}");
                     p.error = Some(if cancelled {
-                        "Cancelado pelo usuário.".into()
+                        "Você cancelou este projeto.".into()
                     } else {
-                        format!("{e:#}")
+                        crate::friendly::error(&raw)
                     });
+                    p.error_detail = (!cancelled).then_some(raw);
                     for c in p.clips.iter_mut() {
                         if c.status == "rendering" || c.status == "pending" {
                             c.status = "error".into();
@@ -118,12 +120,132 @@ fn split_args(s: &str) -> Vec<String> {
     out
 }
 
+/// Atualiza o yt-dlp (os sites mudam com frequência). Retorna a última linha da saída.
+pub async fn update_ytdlp() -> Result<String> {
+    let bin = paths::user_bin_dir().join(paths::exe("yt-dlp"));
+    if !bin.is_file() {
+        bail!("o yt-dlp não está na pasta do usuário");
+    }
+    let mut c = crate::proc::command(&bin);
+    c.arg("-U");
+    let out = tokio::time::timeout(std::time::Duration::from_secs(180), proc::output(c))
+        .await
+        .context("a atualização do yt-dlp demorou demais")??;
+    let _ = std::fs::write(
+        paths::data_dir().join("ytdlp-updated"),
+        crate::state::now().to_string(),
+    );
+    Ok(String::from_utf8_lossy(&out)
+        .trim()
+        .lines()
+        .last()
+        .unwrap_or("")
+        .to_string())
+}
+
+/// Atualiza o yt-dlp em segundo plano se a última atualização tiver mais de 2 dias.
+pub async fn auto_update_ytdlp() {
+    let last: u64 = std::fs::read_to_string(paths::data_dir().join("ytdlp-updated"))
+        .ok()
+        .and_then(|s| s.trim().parse().ok())
+        .unwrap_or(0);
+    if crate::state::now().saturating_sub(last) > 2 * 86400 {
+        match update_ytdlp().await {
+            Ok(msg) => eprintln!("yt-dlp: {msg}"),
+            Err(e) => eprintln!("não foi possível atualizar o yt-dlp: {e:#}"),
+        }
+    }
+}
+
+/// O site pediu login: vale tentar com o login salvo no navegador.
+fn needs_login(msg: &str) -> bool {
+    let t = msg.to_lowercase();
+    [
+        "sign in to confirm",
+        "login required",
+        "use --cookies",
+        "confirm your age",
+        "age-restricted",
+        "members-only",
+    ]
+    .iter()
+    .any(|p| t.contains(p))
+}
+
+/// Erro típico de yt-dlp desatualizado (o site mudou).
+fn looks_outdated(msg: &str) -> bool {
+    let t = msg.to_lowercase();
+    [
+        "unable to extract",
+        "nsig",
+        "signature",
+        "http error 403",
+        "requested format is not available",
+        "please report this issue",
+        "unable to download webpage",
+    ]
+    .iter()
+    .any(|p| t.contains(p))
+}
+
+/// Baixa o vídeo e resolve sozinho os problemas mais comuns:
+/// atualiza o yt-dlp quando o site mudou e usa o login do navegador quando o site pede.
 async fn download(
     app: &App,
     id: &str,
     url: &str,
     dir: &Path,
     cancel: &CancellationToken,
+) -> Result<PathBuf> {
+    let first = match download_once(app, id, url, dir, cancel, &[]).await {
+        Ok(p) => return Ok(p),
+        Err(e) => e,
+    };
+    if cancel.is_cancelled() {
+        return Err(first);
+    }
+    let mut msg = format!("{first:#}");
+    if looks_outdated(&msg) && !needs_login(&msg) {
+        stage(app, id, "Atualizando o baixador de vídeos", 0.0);
+        if update_ytdlp().await.is_ok() {
+            match download_once(app, id, url, dir, cancel, &[]).await {
+                Ok(p) => return Ok(p),
+                Err(e) => msg = format!("{e:#}"),
+            }
+        }
+    }
+    if needs_login(&msg) {
+        for browser in [
+            "firefox", "chrome", "edge", "brave", "chromium", "opera", "vivaldi",
+        ] {
+            if cancel.is_cancelled() {
+                break;
+            }
+            stage(app, id, "Usando o login do seu navegador", 0.0);
+            if let Ok(p) = download_once(
+                app,
+                id,
+                url,
+                dir,
+                cancel,
+                &["--cookies-from-browser", browser],
+            )
+            .await
+            {
+                return Ok(p);
+            }
+        }
+    }
+    Err(first)
+}
+
+async fn download_once(
+    app: &App,
+    id: &str,
+    url: &str,
+    dir: &Path,
+    cancel: &CancellationToken,
+    extra: &[&str],
 ) -> Result<PathBuf> {
     stage(app, id, "Baixando vídeo", 0.0);
     let cfg = app.config();
@@ -144,6 +266,7 @@ async fn download(
     c.args(["--merge-output-format", "mp4", "-o", "source.%(ext)s"]);
     c.arg("--ffmpeg-location").arg(paths::ffmpeg());
     c.args(split_args(&cfg.ytdlp_args));
+    c.args(extra);
     // O deno embutido resolve os desafios JavaScript do YouTube; precisa estar no PATH
     if let Some(dir) = paths::bundled_bin_dir() {
         let mut dirs = vec![dir];
@@ -182,9 +305,7 @@ async fn download(
         }
     })
     .await
-    .context(
-        "não foi possível baixar o vídeo. Tente atualizar o yt-dlp em Configurações → Sistema",
-    )?;
+    .context("não foi possível baixar o vídeo (yt-dlp)")?;
     if let Ok(s) = std::fs::read_to_string(dir.join("source.info.json"))
         && let Ok(v) = serde_json::from_str::<serde_json::Value>(&s)
         && let Some(t) = v["title"].as_str()
@@ -202,6 +323,7 @@ async fn run_full(app: &App, id: &str, cancel: &CancellationToken) -> Result<()>
     app.update(id, true, |p| {
         p.status = "running".into();
         p.error = None;
+        p.error_detail = None;
         p.notice = None;
     });
     let project = app.get(id).context("projeto não existe")?;
@@ -234,6 +356,14 @@ async fn run_full(app: &App, id: &str, cancel: &CancellationToken) -> Result<()>
     {
         Some(t) => t,
         None => {
+            if cfg.stt_provider != "api" {
+                let label = "Preparando a transcrição (só na primeira vez)";
+                stage(app, id, label, 0.0);
+                crate::models::ensure(app, "whisper", &cfg.whisper_model, cancel, |pr| {
+                    stage(app, id, label, pr)
+                })
+                .await?;
+            }
             stage(app, id, "Transcrevendo", 0.0);
             let t = transcribe::transcribe(&cfg, &src, &dir, cancel, |pr, label| {
                 stage(app, id, label, pr)
@@ -250,11 +380,31 @@ async fn run_full(app: &App, id: &str, cancel: &CancellationToken) -> Result<()>
     app.update(id, true, |p| p.language = lang);
 
     // 3. Melhores trechos
+    let mut cfg = cfg;
+    let mut ai_notice = None;
+    if cfg.llm_provider == "local" {
+        let label = "Preparando a inteligência artificial (só na primeira vez)";
+        stage(app, id, label, 0.0);
+        if let Err(e) = crate::models::ensure(app, "llm", &cfg.llm_local_model, cancel, |pr| {
+            stage(app, id, label, pr)
+        })
+        .await
+        {
+            if cancel.is_cancelled() {
+                return Err(e);
+            }
+            // Sem a IA, os cortes são escolhidos automaticamente
+            ai_notice = Some(crate::friendly::ai_notice(&format!("baixar: {e:#}")));
+            cfg.llm_provider = "none".into();
+        }
+    }
     stage(app, id, "Analisando", 0.0);
-    let cands = highlights::find(&cfg, &transcript, info.duration, cancel, |pr, label| {
-        stage(app, id, label, pr)
-    })
-    .await?;
+    let (cands, notice) =
+        highlights::find(&cfg, &transcript, info.duration, cancel, |pr, label| {
+            stage(app, id, label, pr)
+        })
+        .await?;
+    let ai_notice = ai_notice.or(notice);
     if cands.is_empty() {
         bail!("nenhum trecho adequado foi encontrado (tente diminuir a duração mínima)");
     }
@@ -283,13 +433,17 @@ async fn run_full(app: &App, id: &str, cancel: &CancellationToken) -> Result<()>
         .collect();
     let n = clips.len();
     let wanted = cfg.max_clips.max(1) as usize;
-    let notice = (n < wanted).then(|| {
+    let count_notice = (n < wanted).then(|| {
         format!(
-            "Foram encontrados {n} de {wanted} clipes: o vídeo não tem trechos suficientes de {:.0}–{:.0} s \
-sem repetir conteúdo. Diminua a duração mínima para obter mais clipes.",
+            "Foram criados {n} de {wanted} clipes: o vídeo não tem trechos suficientes de {:.0}–{:.0} segundos \
+sem repetir conteúdo. Para ter mais clipes, escolha uma duração mais curta.",
             cfg.min_len, cfg.max_len
         )
     });
+    let notice = match (ai_notice, count_notice) {
+        (Some(a), Some(b)) => Some(format!("{a} {b}")),
+        (a, b) => a.or(b),
+    };
     app.update(id, true, |p| {
         p.clips = clips;
         p.notice = notice;

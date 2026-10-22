@@ -60,21 +60,25 @@ Nada sai do seu computador, a não ser que você escolha usar uma API.
 
 ## Primeiro uso
 
-1. Na primeira abertura, o card **Primeiros passos** pede para escolher um modo:
-   - **No meu computador** (recomendado): baixa a transcrição e a IA, cerca de 2,6 GB;
-   - **API gratuita (Groq)**: basta colar a chave;
-   - **Sem IA**: escolha automática pelo ritmo da fala.
-2. Cole um link (ou arraste um arquivo).
-3. Escolha a quantidade de clipes, a duração, o formato e o enquadramento logo abaixo.
-4. Clique em **✂ Gerar clipes**.
+1. Abra o ClipForge e clique em **Preparar o ClipForge**.
+   - O app vê quanta memória o computador tem e escolhe sozinho a qualidade ideal: Leve, Equilibrado ou Máxima.
+   - Os arquivos de inteligência artificial são baixados uma única vez. Depois, tudo funciona sem internet.
+   - Também dá para usar pela internet (serviço gratuito Groq) ou sem inteligência artificial.
+2. Cole um link (ou arraste um arquivo) e clique em **✂ Criar clipes**. Você não precisa esperar o download terminar.
+
+O ClipForge cuida sozinho das partes técnicas:
+- **Baixador de vídeos:** fica sempre atualizado.
+- **Quando o YouTube pede login:** usa o login que já está no seu navegador.
+- **Memória da IA:** é ajustada ao seu computador.
+- **Se a IA falhar:** os cortes são escolhidos automaticamente e um aviso explica o motivo.
+- **Se algo der errado:** a mensagem é simples e diz o que fazer. Os detalhes técnicos ficam escondidos.
 
 ## Dicas
 
-- **Para ajustar um clipe:** clique em **✎ Ajustar**, mude o início, o fim ou o título e clique em **Renderizar de novo**.
-- **Para copiar o título sugerido:** clique em **⧉** no clipe.
-- **YouTube pede login ("não é um robô"):** em Configurações → Sistema, coloque `--cookies-from-browser firefox` (ou `chrome`) nos argumentos extras do yt-dlp.
-- **Um site parou de baixar:** clique em **Atualizar yt-dlp** em Configurações → Sistema.
-- **PC com pouca RAM:** use Whisper Base e Qwen 2.5 1.5B, ou use uma API.
+- **Para ajustar um clipe:** clique em **✎ Ajustar**, mude o início, o fim ou o título e clique em **Salvar e gerar de novo**.
+- **Para baixar tudo:** use **⬇ Baixar todos**.
+- **Legendas:** escolha o estilo (Clássico, Moderno, Neon ou Pop), a posição e o tamanho em ⚙ Ajustes.
+- **Quem entende de tecnologia:** encontra outros serviços de IA, a memória de contexto e os argumentos do yt-dlp em ⚙ Ajustes → **Opções avançadas**.
 
 ### Onde ficam os dados
 

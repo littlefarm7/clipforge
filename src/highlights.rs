@@ -353,7 +353,7 @@ pub async fn find(
     duration: f64,
     cancel: &CancellationToken,
     mut progress: impl FnMut(f32, &str) + Send,
-) -> Result<Vec<Candidate>> {
+) -> Result<(Vec<Candidate>, Option<String>)> {
     let segs = t.segments();
     if segs.is_empty() {
         bail!("Nenhuma fala foi encontrada no vídeo.");
@@ -361,6 +361,7 @@ pub async fn find(
     // Quantos clipes sem sobreposição cabem no vídeo
     let feasible = ((duration / cfg.min_len.max(5.0)).floor() as usize).max(1);
     let target = (cfg.max_clips.max(1) as usize).min(feasible);
+    let mut notice = None;
     let llm = match cfg.llm_provider.as_str() {
         "none" | "" => None,
         _ => {
@@ -372,7 +373,18 @@ pub async fn find(
                     "Conectando à IA"
                 },
             );
-            Llm::from_config(cfg, cancel).await?
+            match Llm::from_config(cfg, cancel).await {
+                Ok(l) => l,
+                Err(e) => {
+                    if cancel.is_cancelled() {
+                        return Err(e);
+                    }
+                    // A IA não pôde ser usada: segue com a escolha automática
+                    eprintln!("IA indisponível: {e:#}");
+                    notice = Some(crate::friendly::ai_notice(&format!("{e:#}")));
+                    None
+                }
+            }
         }
     };
     let mut chosen: Vec<Candidate> = Vec::new();
@@ -403,7 +415,8 @@ pub async fn find(
         )
         .await?;
         if found.is_empty() && !errors.is_empty() {
-            bail!("a IA não conseguiu analisar o vídeo: {}", errors[0]);
+            eprintln!("a IA não conseguiu analisar o vídeo: {}", errors[0]);
+            notice = Some(crate::friendly::ai_notice(&errors[0]));
         }
         fill(&mut chosen, finish(found, &segs, cfg, duration), target);
 
@@ -452,7 +465,7 @@ pub async fn find(
     }
     chosen.sort_by_key(|c| std::cmp::Reverse(c.score));
     progress(1.0, "Trechos escolhidos");
-    Ok(chosen)
+    Ok((chosen, notice))
 }
 
 /// Sem IA: pontua janelas por densidade de fala, perguntas/exclamações e pausas naturais.

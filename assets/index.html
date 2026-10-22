@@ -6,360 +6,370 @@
 <title>ClipForge</title>
 <link rel="icon" href="data:,">
 <style>
+@font-face{font-family:"Poppins";font-weight:700;src:url(/fonts/Poppins-Bold.ttf) format("truetype")}
+@font-face{font-family:"Anton";src:url(/fonts/Anton-Regular.ttf) format("truetype")}
 :root{
-  --bg:#0d0f14;--panel:#151821;--panel2:#1c202b;--panel3:#232836;--line:#2a3040;--text:#eceef4;--muted:#99a0b3;--dim:#6b7285;
-  --accent:#7c5cff;--accent2:#a48bff;--accent-bg:#221c44;--ok:#35d07f;--ok-bg:#12301f;--warn:#f5b041;--warn-bg:#2d2412;--bad:#ff5c6c;--bad-bg:#2c1419;
-  --radius:14px;
+  --bg:#0a0b11;--card:rgba(255,255,255,.045);--card2:rgba(255,255,255,.07);--card3:rgba(255,255,255,.1);
+  --line:rgba(255,255,255,.09);--line2:rgba(255,255,255,.16);
+  --text:#f1f2f7;--muted:#a3a8bb;--dim:#71778c;
+  --accent:#7c5cff;--accent2:#b18cff;--pink:#ff5ca8;--grad:linear-gradient(135deg,#7c5cff 0%,#b84dff 55%,#ff5ca8 100%);
+  --ok:#3ddc97;--warn:#ffc35c;--bad:#ff6b7d;
+  --r-xl:28px;--r-lg:22px;--r-md:16px;--r-sm:12px;
+  --shadow:0 18px 50px rgba(0,0,0,.35);
 }
 *{box-sizing:border-box}
 html{color-scheme:dark}
-body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,Ubuntu,sans-serif}
+body{margin:0;min-height:100vh;color:var(--text);font:15.5px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,Ubuntu,sans-serif;
+  background:radial-gradient(900px 500px at 10% -10%,rgba(124,92,255,.22),transparent 60%),radial-gradient(800px 500px at 100% 0%,rgba(255,92,168,.14),transparent 60%),var(--bg);background-attachment:fixed}
+h1,h2,h3,.logo,.display{font-family:"Poppins",system-ui,sans-serif;font-weight:700;letter-spacing:-.01em}
 a{color:var(--accent2)}
-button,.btn{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:9px 15px;font:inherit;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:7px;white-space:nowrap;transition:background .15s,border-color .15s}
-button:hover,.btn:hover{border-color:#3d4558;background:var(--panel3)}
-button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
-button.primary:hover{background:#6a48ff}
-button.big{padding:14px 26px;font-size:16px;border-radius:12px}
+button,.btn{font:inherit;color:var(--text);background:var(--card2);border:1px solid var(--line);border-radius:999px;padding:10px 18px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;text-decoration:none;transition:transform .15s,background .15s,border-color .15s,box-shadow .15s}
+button:hover,.btn:hover{background:var(--card3);border-color:var(--line2)}
+button:active{transform:scale(.97)}
+button.primary{background:var(--grad);border:none;color:#fff;font-weight:600;box-shadow:0 8px 24px rgba(124,92,255,.35)}
+button.primary:hover{box-shadow:0 10px 30px rgba(124,92,255,.5);transform:translateY(-1px)}
+button.big{padding:15px 30px;font-size:16.5px}
 button.ghost{background:transparent;border-color:transparent;color:var(--muted)}
-button.ghost:hover{background:var(--panel2);color:var(--text)}
+button.ghost:hover{background:var(--card2);color:var(--text)}
+button.small,.btn.small{padding:7px 14px;font-size:13.5px}
 button.danger{color:var(--bad)}
-button.small,.btn.small{padding:6px 11px;font-size:13px;border-radius:8px}
-button:disabled{opacity:.45;cursor:default}
-input,select,textarea{background:#0f1218;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font:inherit;width:100%}
-input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px #7c5cff33}
-input[type=checkbox]{width:auto;accent-color:var(--accent)}
-input[type=color]{padding:3px;height:40px}
-label{display:block;font-size:13px;color:var(--muted);margin:14px 0 6px}
-.hint{font-size:12.5px;color:var(--dim);margin-top:5px}
+button:disabled{opacity:.45;cursor:default;transform:none;box-shadow:none}
+input,select,textarea{font:inherit;color:var(--text);background:rgba(0,0,0,.25);border:1px solid var(--line);border-radius:var(--r-md);padding:12px 15px;width:100%;transition:border-color .15s,box-shadow .15s}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 4px rgba(124,92,255,.2)}
+input[type=checkbox]{width:auto}
+label.l{display:block;font-size:13px;color:var(--muted);margin:16px 0 7px}
+.hint{font-size:13px;color:var(--dim);margin-top:6px}
+.muted{color:var(--muted)}
 .row{display:flex;gap:10px;align-items:center}
 .wrap{flex-wrap:wrap}
 .grow{flex:1}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:20px}
-.muted{color:var(--muted)}
-h2{font-size:18px;margin:0 0 4px}
-h3{font-size:15px;margin:20px 0 6px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r-xl);padding:26px;backdrop-filter:blur(14px);box-shadow:var(--shadow)}
 
 /* topo */
-header{display:flex;align-items:center;gap:14px;padding:12px 22px;border-bottom:1px solid var(--line);background:#10131aee;backdrop-filter:blur(8px);position:sticky;top:0;z-index:10}
-.logo{font-weight:800;font-size:20px;letter-spacing:.2px;display:flex;align-items:center;gap:9px}
-.logo i{width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,#7c5cff,#ff5ca8);display:inline-block}
-.logo span{color:var(--accent2)}
-.pills{display:flex;gap:8px;margin-left:8px}
-.pill{font-size:12.5px;padding:4px 10px;border-radius:99px;border:1px solid var(--line);color:var(--muted);cursor:pointer;display:flex;align-items:center;gap:6px;background:var(--panel)}
-.pill:hover{border-color:#3d4558}
-.dot{width:8px;height:8px;border-radius:50%;background:var(--dim)}
-.dot.ok{background:var(--ok)}.dot.bad{background:var(--warn)}
+header{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:12px;padding:14px 26px;background:rgba(10,11,17,.7);backdrop-filter:blur(16px);border-bottom:1px solid var(--line)}
+.logo{display:flex;align-items:center;gap:10px;font-size:21px}
+.logo i{width:30px;height:30px;border-radius:10px;background:var(--grad);display:grid;place-items:center;font-style:normal;font-size:15px;box-shadow:0 6px 18px rgba(124,92,255,.4)}
+.logo b{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
 header .sp{flex:1}
-main{max-width:1180px;margin:0 auto;padding:24px 16px 90px;display:flex;flex-direction:column;gap:20px}
-@media(max-width:760px){.pills{display:none}}
+.chip-status{display:flex;align-items:center;gap:8px;font-size:13.5px;padding:7px 14px;border-radius:999px;background:var(--card2);border:1px solid var(--line);cursor:pointer}
+.chip-status .d{width:9px;height:9px;border-radius:50%;background:var(--dim)}
+.chip-status.ok .d{background:var(--ok);box-shadow:0 0 0 4px rgba(61,220,151,.15)}
+.chip-status.busy .d{background:var(--accent2);animation:pulse 1.4s infinite}
+.chip-status.warn .d{background:var(--warn)}
+@keyframes pulse{50%{box-shadow:0 0 0 6px rgba(177,140,255,.0),0 0 0 3px rgba(177,140,255,.35)}}
+main{max-width:1160px;margin:0 auto;padding:30px 18px 100px;display:flex;flex-direction:column;gap:24px}
 
-/* primeiros passos */
-.setup h2{font-size:20px}
-.choices{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:16px}
-@media(max-width:860px){.choices{grid-template-columns:1fr}}
-.choice{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:8px}
-.choice.rec{border-color:#4a3f8a;background:linear-gradient(180deg,#1f1a3a,var(--panel2))}
-.choice .ic{font-size:26px}
-.choice b{font-size:15.5px}
-.choice ul{margin:0;padding-left:18px;color:var(--muted);font-size:13px}
-.choice .acts{margin-top:auto;padding-top:6px;display:flex;flex-direction:column;gap:8px}
-.tag{font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--accent2)}
-.checks{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px;font-size:14px}
-.check{display:flex;align-items:center;gap:7px}
-.dl{margin-top:12px;display:flex;flex-direction:column;gap:8px}
-.dlrow{display:flex;align-items:center;gap:10px;font-size:13px}
-.dlrow .bar{flex:1;margin:0}
+/* boas-vindas */
+.welcome{position:relative;overflow:hidden}
+.welcome:before{content:"";position:absolute;inset:-40% -10% auto auto;width:420px;height:420px;background:radial-gradient(circle,rgba(184,77,255,.25),transparent 65%);pointer-events:none}
+.welcome h1{font-size:28px;margin:0 0 8px}
+.welcome .lead{color:var(--muted);max-width:640px}
+.reco{margin-top:20px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;background:rgba(124,92,255,.1);border:1px solid rgba(124,92,255,.35);border-radius:var(--r-lg);padding:16px 18px}
+.reco .ic{font-size:30px}
+.alts{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
+.panel{margin-top:16px;background:rgba(0,0,0,.2);border:1px solid var(--line);border-radius:var(--r-lg);padding:18px}
+.tiers{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+@media(max-width:820px){.tiers{grid-template-columns:1fr}}
+.tier{border:1.5px solid var(--line);border-radius:var(--r-lg);padding:16px;cursor:pointer;background:var(--card);transition:border-color .15s,background .15s,transform .15s;position:relative}
+.tier:hover{transform:translateY(-2px);border-color:var(--line2)}
+.tier.on{border-color:var(--accent);background:rgba(124,92,255,.13)}
+.tier b{font-family:"Poppins";font-size:16px}
+.tier .s{font-size:13px;color:var(--muted);margin-top:4px}
+.tier .z{font-size:12.5px;color:var(--dim);margin-top:8px}
+.badge-rec{position:absolute;top:-10px;right:14px;background:var(--grad);color:#fff;font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px}
+.steps3{margin:8px 0 0;padding-left:20px;color:var(--muted);font-size:14px}
+.steps3 li{margin:5px 0}
+.prep{display:flex;align-items:center;gap:14px;margin-top:18px}
+.ring{--p:0;width:54px;height:54px;border-radius:50%;background:conic-gradient(var(--accent2) calc(var(--p)*1%),rgba(255,255,255,.08) 0);display:grid;place-items:center;flex:none}
+.ring span{width:42px;height:42px;border-radius:50%;background:#12131c;display:grid;place-items:center;font-size:12.5px;font-weight:700}
 
-/* novo projeto */
-.new h2{font-size:21px}
-.tabs{display:inline-flex;background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:3px;margin:14px 0 12px}
-.tabs button{border:none;background:transparent;color:var(--muted);padding:7px 16px;border-radius:8px}
-.tabs button.on{background:var(--panel3);color:var(--text)}
-.urlrow input{font-size:16px;padding:13px 14px}
-.drop{border:2px dashed var(--line);border-radius:12px;padding:28px;text-align:center;color:var(--muted);cursor:pointer;transition:border-color .15s,background .15s}
-.drop:hover,.drop.over{border-color:var(--accent);background:var(--accent-bg);color:var(--text)}
-.opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-top:16px}
-.opt{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
-.opt .t{font-size:12px;color:var(--muted);margin-bottom:6px}
-.seg{display:flex;gap:4px;flex-wrap:wrap}
-.seg button{padding:5px 10px;font-size:13px;border-radius:8px;background:transparent}
-.seg button.on{background:var(--accent-bg);border-color:#4a3f8a;color:#fff}
-.stepper{display:flex;align-items:center;gap:8px}
-.stepper button{width:32px;height:32px;padding:0;border-radius:8px;font-size:18px}
-.stepper b{min-width:30px;text-align:center;font-size:18px}
-.toggle{display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer}
-.go{margin-top:18px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
-.upbar{margin-top:12px}
+/* criar */
+.create h1{font-size:30px;margin:0 0 6px;line-height:1.2}
+.create h1 em{font-style:normal;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.seg2{display:inline-flex;background:rgba(0,0,0,.25);border:1px solid var(--line);border-radius:999px;padding:4px;margin:18px 0 14px}
+.seg2 button{border:none;background:transparent;color:var(--muted);padding:8px 18px}
+.seg2 button.on{background:var(--card3);color:var(--text)}
+.urlbox{display:flex;align-items:center;gap:8px;background:rgba(0,0,0,.28);border:1px solid var(--line);border-radius:999px;padding:7px 7px 7px 22px;transition:border-color .15s,box-shadow .15s}
+.urlbox:focus-within{border-color:var(--accent);box-shadow:0 0 0 4px rgba(124,92,255,.2)}
+.urlbox input{border:none;background:transparent;padding:10px 0;font-size:16.5px;box-shadow:none}
+.urlbox input:focus{box-shadow:none}
+.drop{border:2px dashed var(--line2);border-radius:var(--r-lg);padding:34px;text-align:center;color:var(--muted);cursor:pointer;display:block;transition:all .15s}
+.drop:hover,.drop.over{border-color:var(--accent);background:rgba(124,92,255,.1);color:var(--text)}
+.drop .big{font-size:34px}
+.opts{display:flex;flex-wrap:wrap;gap:12px;margin-top:20px}
+.opt{background:rgba(0,0,0,.18);border:1px solid var(--line);border-radius:var(--r-lg);padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.opt .t{font-size:12.5px;color:var(--muted)}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chips button{padding:7px 13px;font-size:13.5px;background:transparent}
+.chips button.on{background:rgba(124,92,255,.22);border-color:rgba(124,92,255,.6);color:#fff}
+.stepper{display:flex;align-items:center;gap:10px}
+.stepper button{width:36px;height:36px;padding:0;font-size:19px}
+.stepper b{min-width:30px;text-align:center;font-size:20px;font-family:"Poppins"}
+.switch{position:relative;width:46px;height:26px;flex:none}
+.switch input{opacity:0;width:0;height:0}
+.switch span{position:absolute;inset:0;border-radius:999px;background:rgba(255,255,255,.15);transition:.2s;cursor:pointer}
+.switch span:before{content:"";position:absolute;width:20px;height:20px;left:3px;top:3px;border-radius:50%;background:#fff;transition:.2s}
+.switch input:checked+span{background:var(--accent)}
+.switch input:checked+span:before{transform:translateX(20px)}
+.tog{display:flex;align-items:center;gap:10px;font-size:14px}
+.ar{display:inline-block;border:1.5px solid currentColor;border-radius:3px;margin-right:2px;opacity:.85}
+.go{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:22px}
+.upbar{margin-top:14px}
 
 /* projetos */
-.sect{display:flex;align-items:baseline;gap:10px;margin-top:6px}
-.sect h2{font-size:17px}
-.proj{display:flex;flex-direction:column;gap:14px}
+.sect{display:flex;align-items:baseline;gap:10px;padding:0 6px}
+.sect h2{margin:0;font-size:20px}
+.proj{display:flex;flex-direction:column;gap:16px}
 .ph{display:flex;gap:12px;align-items:flex-start}
-.pt{font-weight:700;font-size:16px;word-break:break-word}
-.ps{font-size:13px;color:var(--muted);word-break:break-all}
-.status{font-size:12px;padding:3px 10px;border-radius:99px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
-.status.running,.status.queued{color:var(--accent2);border-color:#4a3f8a;background:var(--accent-bg)}
-.status.done{color:var(--ok);border-color:#1f5c3a;background:var(--ok-bg)}
-.status.error{color:var(--bad);border-color:#6b2a33;background:var(--bad-bg)}
-.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
-.st{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--dim)}
-.st .n{width:24px;height:24px;border-radius:50%;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:12px;flex:none}
-.st.on{color:var(--text)}.st.on .n{border-color:var(--accent);background:var(--accent);color:#fff}
-.st.ok{color:var(--muted)}.st.ok .n{border-color:#1f5c3a;background:var(--ok-bg);color:var(--ok)}
-@media(max-width:640px){.steps{grid-template-columns:1fr 1fr}}
-.bar{height:8px;background:#0f1218;border-radius:99px;overflow:hidden;border:1px solid var(--line)}
-.bar>div{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));width:0;transition:width .4s}
-.stage{font-size:13px;color:var(--muted)}
-.note{background:var(--warn-bg);border:1px solid #5b4a1a;color:#ffd98a;border-radius:10px;padding:10px 13px;font-size:13px}
-.err{background:var(--bad-bg);border:1px solid #6b2a33;color:#ffb3bb;border-radius:10px;padding:11px 13px;font-size:13px;white-space:pre-wrap;word-break:break-word;max-height:200px;overflow:auto}
-.pacts{display:flex;gap:6px;flex-wrap:wrap}
-.clips{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px}
-.clip{background:var(--panel2);border:1px solid var(--line);border-radius:12px;overflow:hidden;display:flex;flex-direction:column}
+.pt{font-family:"Poppins";font-size:17px;word-break:break-word}
+.ps{font-size:13px;color:var(--dim);word-break:break-all}
+.st{font-size:12.5px;padding:4px 12px;border-radius:999px;background:var(--card2);color:var(--muted);white-space:nowrap}
+.st.running,.st.queued{background:rgba(124,92,255,.18);color:#d4c6ff}
+.st.done{background:rgba(61,220,151,.14);color:var(--ok)}
+.st.error{background:rgba(255,107,125,.14);color:var(--bad)}
+.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.fs{display:flex;align-items:center;gap:9px;font-size:13.5px;color:var(--dim)}
+.fs i{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:var(--card2);font-style:normal;flex:none}
+.fs.on{color:var(--text)}.fs.on i{background:var(--grad);box-shadow:0 0 0 5px rgba(124,92,255,.18)}
+.fs.ok{color:var(--muted)}.fs.ok i{background:rgba(61,220,151,.18);color:var(--ok)}
+@media(max-width:680px){.flow{grid-template-columns:1fr 1fr}}
+.bar{height:10px;background:rgba(255,255,255,.07);border-radius:999px;overflow:hidden}
+.bar>div{height:100%;background:var(--grad);border-radius:999px;width:0;transition:width .5s}
+.stage{font-size:13.5px;color:var(--muted)}
+.note{background:rgba(255,195,92,.1);border:1px solid rgba(255,195,92,.3);color:#ffe0a6;border-radius:var(--r-md);padding:12px 15px;font-size:14px}
+.err{background:rgba(255,107,125,.1);border:1px solid rgba(255,107,125,.3);color:#ffc2ca;border-radius:var(--r-md);padding:13px 15px;font-size:14px}
+.err details{margin-top:8px;color:var(--muted);font-size:12.5px}
+.err pre{white-space:pre-wrap;word-break:break-word;max-height:180px;overflow:auto;margin:6px 0 0}
+.pacts{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.clips{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}
+.clip{background:rgba(0,0,0,.22);border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden;display:flex;flex-direction:column;transition:transform .15s,border-color .15s}
+.clip:hover{transform:translateY(-3px);border-color:var(--line2)}
 .media{position:relative;background:#000;aspect-ratio:9/16;display:flex;align-items:center;justify-content:center}
 .r11 .media{aspect-ratio:1/1}.r45 .media{aspect-ratio:4/5}.r169 .media{aspect-ratio:16/9}
 .media video{width:100%;height:100%;object-fit:contain;background:#000}
-.media .ph2{color:var(--muted);font-size:13px;padding:12px;text-align:center}
-.badge{position:absolute;top:8px;left:8px;background:rgba(0,0,0,.75);border-radius:8px;padding:2px 8px;font-weight:800;font-size:13px;z-index:2}
-.badge.hi{color:#5dffa0}.badge.mid{color:#ffd35c}.badge.lo{color:#ff9f9f}
-.dur{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.75);border-radius:8px;padding:2px 8px;font-size:12px;z-index:2}
-.ci{padding:11px 12px 12px;display:flex;flex-direction:column;gap:6px;flex:1}
-.ci .t{font-weight:700;font-size:14px;line-height:1.35}
-.ci .m{font-size:12px;color:var(--dim)}
-.ci .r{font-size:12.5px;color:var(--muted)}
-.ci .acts{display:flex;gap:6px;margin-top:auto;padding-top:6px}
+.media .wait{color:var(--muted);font-size:13.5px;text-align:center;padding:14px}
+.pill{position:absolute;top:10px;background:rgba(10,11,17,.72);backdrop-filter:blur(8px);border-radius:999px;padding:3px 10px;font-size:12.5px;font-weight:700;z-index:2}
+.pill.l{left:10px}.pill.r{right:10px;font-weight:500}
+.hi{color:#7dffb8}.mid{color:#ffd96b}.lo{color:#ffb0b0}
+.ci{padding:13px 14px 14px;display:flex;flex-direction:column;gap:7px;flex:1}
+.ci .t{font-weight:650;font-size:14.5px;line-height:1.35}
+.ci .r{font-size:13px;color:var(--muted)}
+.ci .acts{display:flex;gap:6px;margin-top:auto;padding-top:8px}
 .ci .acts>*{flex:1}
-.mini{height:5px;background:#0f1218;border-radius:9px;overflow:hidden;width:70%;margin:10px auto 0}
-.mini>div{height:100%;background:var(--accent2)}
-.empty{color:var(--muted);text-align:center;padding:36px 10px}
+.mini{height:6px;background:rgba(255,255,255,.08);border-radius:9px;overflow:hidden;width:70%;margin:10px auto 0}
+.mini>div{height:100%;background:var(--grad)}
+.empty{text-align:center;color:var(--muted);padding:40px 16px}
+.empty .big{font-size:40px;margin-bottom:6px}
 
-/* modais */
-.mbg{position:fixed;inset:0;background:rgba(0,0,0,.62);display:none;align-items:flex-start;justify-content:center;z-index:30;overflow:auto;padding:30px 12px}
+/* janelas */
+.mbg{position:fixed;inset:0;z-index:40;background:rgba(5,6,10,.65);backdrop-filter:blur(6px);display:none;align-items:flex-start;justify-content:center;overflow:auto;padding:34px 14px}
 .mbg.on{display:flex}
-.modal{width:min(900px,100%);background:var(--panel);border:1px solid var(--line);border-radius:16px;overflow:hidden}
-.mh{display:flex;align-items:center;padding:14px 18px;border-bottom:1px solid var(--line)}
-.mh h2{flex:1;margin:0}
-.mb{display:flex;min-height:420px}
-.nav{width:210px;border-right:1px solid var(--line);padding:10px;display:flex;flex-direction:column;gap:3px;flex:none}
-.nav button{justify-content:flex-start;background:transparent;border-color:transparent;color:var(--muted)}
-.nav button.on{background:var(--accent-bg);color:#fff}
-.pane{display:none;padding:6px 20px 20px;flex:1;min-width:0}
-.pane.on{display:block}
-@media(max-width:700px){.mb{flex-direction:column}.nav{width:auto;flex-direction:row;flex-wrap:wrap;border-right:none;border-bottom:1px solid var(--line)}}
+.modal{width:min(860px,100%);background:#12131c;border:1px solid var(--line);border-radius:var(--r-xl);box-shadow:0 30px 80px rgba(0,0,0,.6);overflow:hidden;animation:pop .18s ease-out}
+@keyframes pop{from{transform:translateY(10px) scale(.98);opacity:0}}
+.mh{display:flex;align-items:center;padding:18px 22px;border-bottom:1px solid var(--line)}
+.mh h2{flex:1;margin:0;font-size:20px}
+.mbody{padding:6px 24px 24px}
+.sec{padding:18px 0;border-bottom:1px solid var(--line)}
+.sec:last-child{border-bottom:none}
+.sec h3{margin:0 0 4px;font-size:16px}
+.modes{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
+@media(max-width:700px){.modes{grid-template-columns:1fr}}
+.mode{border:1.5px solid var(--line);border-radius:var(--r-lg);padding:14px;cursor:pointer;background:var(--card)}
+.mode.on{border-color:var(--accent);background:rgba(124,92,255,.13)}
+.mode b{display:block;font-size:14.5px}
+.mode span{font-size:13px;color:var(--muted)}
+.styles{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:12px}
+@media(max-width:700px){.styles{grid-template-columns:1fr 1fr}}
+.sty{border:1.5px solid var(--line);border-radius:var(--r-lg);overflow:hidden;cursor:pointer;background:#000}
+.sty.on{border-color:var(--accent);box-shadow:0 0 0 4px rgba(124,92,255,.2)}
+.sty .pv{height:92px;display:grid;place-items:center;background:linear-gradient(160deg,#2b2f3d,#14161f);font-size:21px;text-align:center;padding:6px;text-shadow:0 2px 0 #000,0 0 3px #000}
+.sty .nm{padding:7px 10px;font-size:13px;color:var(--muted);background:#12131c}
+details.adv{margin-top:6px}
+details.adv summary{cursor:pointer;color:var(--muted);padding:14px 0;font-size:14.5px;list-style:none}
+details.adv summary:before{content:"▸ ";}
+details.adv[open] summary:before{content:"▾ ";}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 16px}
 @media(max-width:600px){.grid2{grid-template-columns:1fr}}
-.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-top:8px}
-.rc{border:1px solid var(--line);border-radius:12px;padding:12px;cursor:pointer;background:var(--panel2)}
-.rc.on{border-color:var(--accent);background:var(--accent-bg)}
-.rc b{display:block;font-size:14px}
-.rc span{font-size:12.5px;color:var(--muted)}
-.mf{display:flex;gap:10px;justify-content:flex-end;padding:14px 18px;border-top:1px solid var(--line)}
-.model{display:flex;gap:12px;align-items:center;padding:11px 0;border-bottom:1px solid var(--line)}
+.model{display:flex;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);font-size:14px}
 .model:last-child{border-bottom:none}
-.model .n{font-weight:600}
-.model .d{font-size:12.5px;color:var(--muted)}
-.ok{color:var(--ok);font-size:13px}
-.sys{font-size:13px;display:grid;grid-template-columns:150px 1fr;gap:6px 12px;margin-top:10px;word-break:break-all}
+.sys{font-size:13px;display:grid;grid-template-columns:150px 1fr;gap:6px 12px;word-break:break-all}
 .sys div:nth-child(odd){color:var(--muted)}
-details{margin-top:18px;border-top:1px solid var(--line);padding-top:6px}
-summary{cursor:pointer;color:var(--muted);font-size:14px;padding:6px 0}
-.editbox{display:grid;grid-template-columns:240px 1fr;gap:18px;padding:18px}
+.editbox{display:grid;grid-template-columns:240px 1fr;gap:20px;padding:22px}
 @media(max-width:640px){.editbox{grid-template-columns:1fr}}
-.editbox video{width:100%;border-radius:10px;background:#000;max-height:430px}
-.nudge{display:flex;gap:4px;margin-top:6px}
-.nudge button{padding:4px 8px;font-size:12px;border-radius:7px}
-.textbox{font-size:13px;color:var(--muted);background:#0f1218;border:1px solid var(--line);border-radius:10px;padding:10px;max-height:150px;overflow:auto;margin-top:6px}
-.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:#252a38;border:1px solid var(--line);padding:11px 18px;border-radius:12px;z-index:60;display:none;max-width:90vw;box-shadow:0 10px 30px #0008}
-.toast.on{display:block}
+.editbox video{width:100%;border-radius:var(--r-md);background:#000;max-height:430px}
+.nudge{display:flex;gap:5px;margin-top:7px}
+.nudge button{padding:5px 10px;font-size:12.5px}
+.textbox{font-size:13.5px;color:var(--muted);background:rgba(0,0,0,.25);border:1px solid var(--line);border-radius:var(--r-md);padding:12px;max-height:150px;overflow:auto}
+.mf{display:flex;gap:10px;justify-content:flex-end;padding:16px 22px;border-top:1px solid var(--line)}
+@media(max-width:600px){
+  body{overflow-x:hidden}
+  header{padding:12px 14px;gap:6px}
+  .logo{font-size:17px;gap:8px}
+  .logo i{width:26px;height:26px}
+  header button{padding:8px 9px}
+  .chip-status{white-space:nowrap;padding:6px 11px;font-size:12.5px}
+  .hide-sm{display:none}
+  main{padding:18px 12px 80px;gap:18px}
+  .card{padding:18px;border-radius:22px}
+  .create h1{font-size:24px}
+  .welcome h1{font-size:23px}
+  .seg2{display:flex;width:100%}
+  .seg2 button{flex:1;padding:8px 10px}
+  .urlbox{flex-direction:column;align-items:stretch;border-radius:20px;padding:8px}
+  .urlbox input{padding:10px 12px}
+  .opt{width:100%}
+  .reco button{width:100%}
+}
+.toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(20px);opacity:0;pointer-events:none;background:#1d1f2b;border:1px solid var(--line2);padding:12px 20px;border-radius:999px;z-index:60;max-width:90vw;box-shadow:0 12px 40px rgba(0,0,0,.5);transition:.25s}
+.toast.on{opacity:1;transform:translateX(-50%)}
 </style>
 </head>
 <body>
 <header>
-  <div class="logo"><i></i>Clip<span>Forge</span></div>
-  <div class="pills">
-    <div class="pill" onclick="openSettings('p-stt')" title="Transcrição"><span class="dot" id="dot-stt"></span><span id="pill-stt">Transcrição</span></div>
-    <div class="pill" onclick="openSettings('p-ai')" title="Inteligência artificial"><span class="dot" id="dot-ai"></span><span id="pill-ai">IA</span></div>
-  </div>
+  <div class="logo"><i>✂</i><span>Clip<b>Forge</b></span></div>
   <div class="sp"></div>
-  <button class="ghost" onclick="openSettings()">⚙ Ajustes</button>
-  <button class="ghost" onclick="quit()" title="Fechar o ClipForge">⏻ Sair</button>
+  <div class="chip-status" id="status" onclick="openSettings()"><span class="d"></span><span id="status-t">Carregando…</span></div>
+  <button class="ghost" onclick="openSettings()" title="Ajustes">⚙<span class="hide-sm"> Ajustes</span></button>
+  <button class="ghost" onclick="quit()" title="Fechar o ClipForge">⏻</button>
 </header>
 
 <main>
-  <!-- Primeiros passos: aparece enquanto a transcrição ou a IA não estiverem prontas -->
-  <section class="card setup" id="setup" style="display:none">
-    <div class="tag">Primeiros passos</div>
-    <h2>Escolha como o ClipForge vai trabalhar</h2>
-    <div class="muted">Dá para mudar depois em ⚙ Ajustes.</div>
-    <div class="choices">
-      <div class="choice rec">
-        <div class="ic">💻</div>
-        <b>No meu computador</b>
-        <ul><li>Grátis e sem internet depois de baixar</li><li>Baixa ≈ 2,6 GB de modelos</li><li>Precisa de ≈ 6 GB de RAM livre</li></ul>
-        <div class="acts"><button class="primary" onclick="presetLocal()">Preparar (recomendado)</button></div>
-      </div>
-      <div class="choice">
-        <div class="ic">⚡</div>
-        <b>Com API gratuita (Groq)</b>
-        <ul><li>Mais rápido e leve para o PC</li><li>Precisa de internet e de uma chave grátis</li><li>Crie em <a href="https://console.groq.com/keys" target="_blank">console.groq.com/keys</a></li></ul>
-        <div class="acts"><input id="groq-key" type="password" placeholder="Cole aqui a chave (gsk_...)"><button onclick="presetGroq()">Usar a Groq</button></div>
-      </div>
-      <div class="choice">
-        <div class="ic">🎯</div>
-        <b>Sem IA</b>
-        <ul><li>Escolha automática por ritmo da fala</li><li>Baixa só a transcrição (142 MB)</li><li>Cortes menos certeiros</li></ul>
-        <div class="acts"><button onclick="presetNone()">Usar sem IA</button></div>
-      </div>
+  <!-- Boas-vindas: só na primeira vez -->
+  <section class="card welcome" id="welcome" style="display:none">
+    <h1>Bem-vindo ao ClipForge 👋</h1>
+    <div class="lead">Antes de começar, o ClipForge precisa preparar a inteligência que assiste aos seus vídeos e escolhe os melhores momentos. É só um clique.</div>
+    <div class="reco">
+      <div class="ic">💻</div>
+      <div class="grow"><b id="reco-title">Analisando o seu computador…</b><div class="hint" id="reco-sub" style="margin:2px 0 0"></div></div>
+      <button class="primary big" onclick="setupLocal()">Preparar o ClipForge</button>
     </div>
-    <div class="checks">
-      <div class="check" id="chk-stt"></div>
-      <div class="check" id="chk-ai"></div>
+    <div class="alts">
+      <button class="small ghost" onclick="togglePanel('p-tiers')">Escolher outra qualidade</button>
+      <button class="small ghost" onclick="togglePanel('p-online')">Usar pela internet (mais leve para o computador)</button>
+      <button class="small ghost" onclick="setupNone()">Começar sem inteligência artificial</button>
     </div>
-    <div class="dl" id="setup-dl"></div>
+    <div class="panel" id="p-tiers" style="display:none"><div class="tiers" id="tiers-welcome"></div></div>
+    <div class="panel" id="p-online" style="display:none">
+      <b>Usar o serviço gratuito Groq</b>
+      <ol class="steps3">
+        <li>Abra <a href="https://console.groq.com/keys" target="_blank">console.groq.com/keys</a> e entre com sua conta Google.</li>
+        <li>Clique em <b>Create API Key</b> e copie o código que aparece.</li>
+        <li>Cole o código abaixo:</li>
+      </ol>
+      <div class="row" style="margin-top:10px"><input id="groq-key" type="password" placeholder="Cole aqui o código (começa com gsk_)"><button class="primary" onclick="setupOnline()">Usar</button></div>
+    </div>
   </section>
 
-  <!-- Novo projeto -->
-  <section class="card new">
-    <h2>Transforme um vídeo longo em clipes virais</h2>
-    <div class="muted">YouTube, Twitch, Vimeo, X, Instagram e mais de 1000 sites, ou um arquivo do seu computador.</div>
-    <div class="tabs"><button class="on" id="tab-link" onclick="srcTab('link')">🔗 Link</button><button id="tab-file" onclick="srcTab('file')">📁 Arquivo</button></div>
-    <div id="src-link" class="row urlrow">
-      <input id="url" placeholder="Cole o link do vídeo aqui" onkeydown="if(event.key==='Enter')submitUrl()">
+  <!-- Preparando (downloads da primeira vez) -->
+  <section class="card" id="preparing" style="display:none">
+    <div class="prep" style="margin:0">
+      <div class="ring" id="prep-ring"><span id="prep-pct">0%</span></div>
+      <div class="grow"><b class="display" id="prep-title">Preparando o ClipForge…</b><div class="hint" id="prep-sub" style="margin:2px 0 0"></div></div>
+    </div>
+  </section>
+
+  <!-- Criar -->
+  <section class="card create">
+    <h1>Transforme vídeos longos em <em>clipes virais</em></h1>
+    <div class="muted">Cole o link de um vídeo do YouTube, Instagram, TikTok, Twitch… ou envie um arquivo.</div>
+    <div class="seg2"><button class="on" id="tab-link" onclick="srcTab('link')">🔗 Link</button><button id="tab-file" onclick="srcTab('file')">📁 Arquivo<span class="hide-sm"> do computador</span></button></div>
+    <div id="src-link">
+      <div class="urlbox"><input id="url" placeholder="Cole o link do vídeo aqui" onkeydown="if(event.key==='Enter')submitUrl()"><button class="primary" id="go" onclick="submitUrl()">✂ Criar clipes</button></div>
     </div>
     <div id="src-file" style="display:none">
-      <label class="drop" id="drop" for="file"><div style="font-size:28px">⬆</div><b>Arraste o vídeo para cá</b><div class="hint">ou clique para escolher (MP4, MOV, MKV, MP3…)</div></label>
+      <label class="drop" id="drop" for="file"><div class="big">⬆</div><b>Arraste o vídeo para cá</b><div class="hint">ou clique para escolher no computador</div></label>
       <input type="file" id="file" accept="video/*,audio/*" style="display:none" onchange="upload(this.files[0])">
     </div>
-    <div class="opts">
-      <div class="opt"><div class="t">Quantidade de clipes</div>
-        <div class="stepper"><button onclick="bump(-1)">−</button><b id="q-count">6</b><button onclick="bump(1)">+</button></div></div>
-      <div class="opt"><div class="t">Duração de cada clipe</div><div class="seg" id="q-dur"></div></div>
-      <div class="opt"><div class="t">Formato</div><div class="seg" id="q-aspect"></div></div>
-      <div class="opt"><div class="t">Enquadramento</div><div class="seg" id="q-crop"></div></div>
-      <div class="opt"><div class="t">Legendas animadas</div><label class="toggle" style="margin:4px 0 0"><input type="checkbox" id="q-subs" onchange="quickSet({subtitles:this.checked})"> Gravar no vídeo</label></div>
-    </div>
-    <div class="go">
-      <button class="primary big" id="go" onclick="submitUrl()">✂ Gerar clipes</button>
-      <span class="hint" id="go-hint"></span>
-    </div>
     <div class="bar upbar" id="upbar" style="display:none"><div></div></div>
+    <div class="opts">
+      <div class="opt"><div class="t">Quantos clipes</div><div class="stepper"><button onclick="bump(-1)">−</button><b id="q-count">6</b><button onclick="bump(1)">+</button></div></div>
+      <div class="opt"><div class="t">Duração de cada clipe</div><div class="chips" id="q-dur"></div></div>
+      <div class="opt"><div class="t">Formato</div><div class="chips" id="q-aspect"></div></div>
+      <div class="opt"><div class="t">Enquadramento</div><div class="chips" id="q-crop"></div></div>
+      <div class="opt"><div class="t">Legendas</div><label class="tog"><span class="switch"><input type="checkbox" id="q-subs" onchange="quickSet({subtitles:this.checked})"><span></span></span><span id="q-subs-t">Ligadas</span></label></div>
+    </div>
   </section>
 
-  <div class="sect"><h2>Seus projetos</h2><span class="muted" id="count"></span></div>
-  <div id="projects" style="display:flex;flex-direction:column;gap:16px"></div>
+  <div class="sect"><h2>Seus clipes</h2><span class="muted" id="count"></span></div>
+  <div id="projects" style="display:flex;flex-direction:column;gap:18px"></div>
 </main>
 
 <!-- Ajustes -->
 <div class="mbg" id="settings" onclick="if(event.target===this)closeSettings()">
   <div class="modal">
-    <div class="mh"><h2>Ajustes</h2><button class="ghost" onclick="closeSettings()">✕</button></div>
-    <div class="mb">
-      <div class="nav">
-        <button data-p="p-stt" class="on">🎙 Transcrição</button>
-        <button data-p="p-ai">🧠 Inteligência artificial</button>
-        <button data-p="p-subs">💬 Legendas</button>
-        <button data-p="p-models">⬇ Modelos baixados</button>
-        <button data-p="p-adv">🛠 Avançado</button>
+    <div class="mh"><h2>Ajustes</h2><span class="hint" style="margin:0 12px 0 0">Tudo é salvo automaticamente</span><button class="ghost" onclick="closeSettings()">✕</button></div>
+    <div class="mbody">
+      <div class="sec">
+        <h3>Inteligência artificial</h3>
+        <div class="hint" style="margin:0">É ela que assiste ao vídeo e escolhe os melhores momentos.</div>
+        <div class="modes" id="modes">
+          <div class="mode" data-v="local"><b>💻 No meu computador</b><span>Grátis e funciona sem internet</span></div>
+          <div class="mode" data-v="online"><b>🌐 Pela internet</b><span>Mais leve, precisa de internet</span></div>
+          <div class="mode" data-v="none"><b>🎯 Sem inteligência artificial</b><span>Mais rápido, cortes mais simples</span></div>
+        </div>
+        <div id="m-local" style="margin-top:14px"><div class="tiers" id="tiers-settings"></div><div class="hint" id="tier-hint"></div></div>
+        <div id="m-online" style="margin-top:14px">
+          <div class="hint" style="margin:0 0 8px">Código do serviço gratuito Groq (<a href="https://console.groq.com/keys" target="_blank">pegue o seu aqui</a>):</div>
+          <div class="row"><input id="s-groq" type="password" placeholder="gsk_..."><button onclick="saveOnline()">Salvar</button></div>
+        </div>
       </div>
 
-      <div class="pane on" id="p-stt">
-        <h3>Como transformar a fala em texto</h3>
-        <div class="cards" id="stt-cards">
-          <div class="rc" data-v="local"><b>💻 No meu computador</b><span>whisper.cpp, grátis e offline</span></div>
-          <div class="rc" data-v="api"><b>⚡ API online</b><span>Groq (grátis) ou OpenAI</span></div>
-        </div>
-        <div id="stt-local">
-          <label>Modelo de transcrição</label>
-          <select id="whisper_model"></select>
-          <div class="hint">“Small” é um bom equilíbrio para português. Baixe outros em “Modelos baixados”.</div>
-        </div>
-        <div id="stt-api">
-          <label>Serviço</label><select id="stt_preset" onchange="applyPreset('stt')"></select>
-          <label>Chave da API</label><input id="stt_api_key" type="password" placeholder="gsk_... / sk-...">
-          <details><summary>Endereço e modelo (para serviços personalizados)</summary>
-            <div class="grid2"><div><label>Endereço (base URL)</label><input id="stt_api_base"></div><div><label>Modelo</label><input id="stt_api_model"></div></div>
-          </details>
-        </div>
-        <label>Idioma falado no vídeo</label>
-        <select id="language">
-          <option value="auto">Detectar automaticamente</option><option value="pt">Português</option><option value="en">Inglês</option>
-          <option value="es">Espanhol</option><option value="fr">Francês</option><option value="de">Alemão</option><option value="it">Italiano</option>
-          <option value="ja">Japonês</option><option value="ko">Coreano</option><option value="zh">Chinês</option><option value="ru">Russo</option>
-        </select>
-      </div>
-
-      <div class="pane" id="p-ai">
-        <h3>Quem escolhe os melhores trechos</h3>
-        <div class="cards" id="ai-cards">
-          <div class="rc" data-v="local"><b>💻 IA no meu computador</b><span>llama.cpp, grátis e offline</span></div>
-          <div class="rc" data-v="api"><b>⚡ IA online</b><span>Groq, Gemini, OpenRouter, Ollama…</span></div>
-          <div class="rc" data-v="none"><b>🎯 Sem IA</b><span>Mais rápido, menos certeiro</span></div>
-        </div>
-        <div id="ai-local">
-          <label>Modelo de IA</label>
-          <select id="llm_local_model"></select>
-          <div class="hint">Recomendado: Qwen 2.5 3B. Modelos maiores escolhem melhor, mas são mais lentos.</div>
-        </div>
-        <div id="ai-api">
-          <label>Serviço</label><select id="llm_preset" onchange="applyPreset('llm')"></select>
-          <label>Chave da API</label><input id="llm_api_key" type="password" placeholder="deixe vazio para Ollama / LM Studio">
-          <label>Modelo</label><input id="llm_api_model">
-          <details><summary>Endereço (para serviços personalizados)</summary><label>Endereço (base URL)</label><input id="llm_api_base"></details>
-        </div>
-        <label>O que a IA deve priorizar (opcional)</label>
-        <textarea id="extra_prompt" rows="2" placeholder="Ex.: momentos engraçados; evitar trechos com propaganda"></textarea>
-        <div class="row" style="margin-top:14px"><button onclick="testLlm()">🔌 Testar a IA</button><span id="llm-test" class="hint" style="margin:0"></span></div>
-      </div>
-
-      <div class="pane" id="p-subs">
-        <h3>Legendas</h3>
-        <label class="toggle" style="margin-top:10px"><input type="checkbox" id="subtitles"> Gravar legendas animadas no vídeo</label>
+      <div class="sec">
+        <h3>Aparência das legendas</h3>
+        <div class="styles" id="styles"></div>
         <div class="grid2">
-          <div><label>Fonte</label><select id="sub_font"><option>Anton</option><option>Poppins</option><option>DejaVu Sans</option></select></div>
-          <div><label>Tamanho</label><input id="sub_size" type="number" min="30" max="200"></div>
-          <div><label>Cor do texto</label><input id="sub_color" type="color"></div>
-          <div><label>Cor da palavra falada</label><input id="sub_highlight" type="color"></div>
-          <div><label>Posição</label><select id="sub_position"><option value="bottom">Embaixo</option><option value="middle">No meio</option><option value="top">Em cima</option></select></div>
-          <div><label>Palavras por vez</label><input id="words_per_line" type="number" min="1" max="8"></div>
+          <div><label class="l">Posição</label><div class="chips" id="s-pos"></div></div>
+          <div><label class="l">Tamanho</label><div class="chips" id="s-size"></div></div>
         </div>
-        <label class="toggle" style="margin-top:14px"><input type="checkbox" id="sub_uppercase"> Texto em MAIÚSCULAS</label>
+      </div>
+
+      <div class="sec">
         <h3>Vídeo</h3>
         <div class="grid2">
-          <div><label>Qualidade</label><select id="quality"><option value="1080">1080p</option><option value="720">720p (mais rápido)</option></select></div>
-          <div><label>Duração mínima / máxima (s)</label><div class="row"><input id="min_len" type="number" min="5" max="300"><input id="max_len" type="number" min="10" max="600"></div></div>
+          <div><label class="l">Idioma falado no vídeo</label>
+            <select id="s-lang" onchange="setCfg({language:this.value})">
+              <option value="auto">Descobrir sozinho</option><option value="pt">Português</option><option value="en">Inglês</option>
+              <option value="es">Espanhol</option><option value="fr">Francês</option><option value="de">Alemão</option><option value="it">Italiano</option>
+              <option value="ja">Japonês</option><option value="ko">Coreano</option><option value="zh">Chinês</option><option value="ru">Russo</option>
+            </select></div>
+          <div><label class="l">Qualidade dos clipes</label><div class="chips" id="s-quality"></div></div>
         </div>
+        <label class="l">O que priorizar nos cortes (opcional)</label>
+        <input id="s-extra" placeholder="Ex.: momentos engraçados, dicas práticas, histórias pessoais" onchange="setCfg({extra_prompt:this.value})">
       </div>
 
-      <div class="pane" id="p-models">
-        <h3>Transcrição (Whisper)</h3><div id="m-whisper"></div>
-        <h3>IA local</h3><div id="m-llm"></div>
-        <details><summary>Baixar um modelo pelo link</summary>
-          <div class="hint">Link direto de um arquivo .gguf (IA) ou ggml .bin (Whisper), como os do Hugging Face (“resolve/main/…”).</div>
-          <div class="row" style="margin-top:8px">
-            <select id="custom-kind" style="width:150px"><option value="llm">IA (.gguf)</option><option value="whisper">Whisper (.bin)</option></select>
-            <input id="custom-url" placeholder="https://huggingface.co/.../resolve/main/modelo.gguf">
-            <button onclick="customDownload()">Baixar</button>
-          </div>
-        </details>
-      </div>
-
-      <div class="pane" id="p-adv">
-        <h3>IA local</h3>
-        <label>Memória de contexto da IA</label>
-        <select id="llm_ctx"><option value="4096">4096 — pouca RAM</option><option value="8192">8192 — recomendado</option><option value="16384">16384 — mais RAM</option><option value="32768">32768 — muita RAM</option></select>
-        <div class="hint">Vídeos longos são divididos em partes que cabem nesse espaço. Mais contexto = menos partes, mais RAM.</div>
-        <h3>Downloads de vídeo</h3>
-        <label>Argumentos extras do yt-dlp</label>
-        <input id="ytdlp_args" placeholder="--cookies-from-browser firefox">
-        <div class="hint">Se o YouTube pedir login (“não é um robô”), use <code>--cookies-from-browser firefox</code> (ou chrome).</div>
-        <div class="row" style="margin-top:10px"><button onclick="updateYtdlp()">⟳ Atualizar yt-dlp</button><span id="yt-out" class="hint" style="margin:0"></span></div>
-        <h3>Desempenho</h3>
-        <label>Núcleos da CPU (0 = automático)</label><input id="threads" type="number" min="0" max="64">
-        <h3>Sistema</h3>
-        <div class="sys" id="sysinfo">Carregando…</div>
-      </div>
+      <details class="adv" id="adv">
+        <summary>Opções avançadas (para quem entende de tecnologia)</summary>
+        <div class="hint" style="margin-top:0">O ClipForge ajusta tudo isto sozinho. Só altere se souber o que está fazendo.</div>
+        <div class="grid2">
+          <div><label class="l">Serviço online de IA (endereço)</label><input id="a-llm-base" onchange="setCfg({llm_api_base:this.value})"></div>
+          <div><label class="l">Modelo de IA online</label><input id="a-llm-model" onchange="setCfg({llm_api_model:this.value})"></div>
+          <div><label class="l">Chave da IA online</label><input id="a-llm-key" type="password" onchange="setCfg({llm_api_key:this.value})"></div>
+          <div><label class="l">Transcrição pela internet</label><select id="a-stt" onchange="setCfg({stt_provider:this.value})"><option value="local">No computador</option><option value="api">Pela internet</option></select></div>
+          <div><label class="l">Serviço de transcrição (endereço)</label><input id="a-stt-base" onchange="setCfg({stt_api_base:this.value})"></div>
+          <div><label class="l">Modelo de transcrição online</label><input id="a-stt-model" onchange="setCfg({stt_api_model:this.value})"></div>
+          <div><label class="l">Chave da transcrição online</label><input id="a-stt-key" type="password" onchange="setCfg({stt_api_key:this.value})"></div>
+          <div><label class="l">Memória de contexto da IA local</label><select id="a-ctx" onchange="setCfg({llm_ctx:Number(this.value)})"><option value="0">Automático</option><option value="4096">4096</option><option value="8192">8192</option><option value="16384">16384</option><option value="32768">32768</option></select></div>
+          <div><label class="l">Núcleos da CPU (0 = automático)</label><input id="a-threads" type="number" min="0" max="64" onchange="setCfg({threads:Number(this.value)})"></div>
+          <div><label class="l">Duração mínima / máxima (segundos)</label><div class="row"><input id="a-min" type="number" onchange="setCfg({min_len:Number(this.value)})"><input id="a-max" type="number" onchange="setCfg({max_len:Number(this.value)})"></div></div>
+          <div><label class="l">Argumentos extras do yt-dlp</label><input id="a-ytdlp" placeholder="--cookies-from-browser firefox" onchange="setCfg({ytdlp_args:this.value})"></div>
+        </div>
+        <div class="row wrap" style="margin-top:14px">
+          <button class="small" onclick="testLlm()">🔌 Testar a IA</button>
+          <button class="small" onclick="updateYtdlp()">⟳ Atualizar o baixador de vídeos</button>
+          <span class="hint" id="adv-out" style="margin:0"></span>
+        </div>
+        <label class="l">Arquivos de inteligência artificial no computador</label>
+        <div id="a-models"></div>
+        <div class="row" style="margin-top:10px">
+          <select id="custom-kind" style="width:170px"><option value="llm">IA (.gguf)</option><option value="whisper">Transcrição (.bin)</option></select>
+          <input id="custom-url" placeholder="Link direto de um modelo (Hugging Face)">
+          <button class="small" onclick="customDownload()">Baixar</button>
+        </div>
+        <label class="l">Sistema</label>
+        <div class="sys" id="sysinfo"></div>
+      </details>
     </div>
-    <div class="mf"><button onclick="closeSettings()">Cancelar</button><button class="primary" onclick="saveSettings()">Salvar</button></div>
   </div>
 </div>
 
@@ -370,16 +380,16 @@ summary{cursor:pointer;color:var(--muted);font-size:14px;padding:6px 0}
     <div class="editbox" id="ed-box">
       <div id="ed-vbox"><video id="ed-video" controls></video></div>
       <div>
-        <label style="margin-top:0">Título (para usar na postagem)</label><input id="ed-title">
+        <label class="l" style="margin-top:0">Título para a postagem</label><input id="ed-title">
         <div class="grid2">
-          <div><label>Início</label><input id="ed-start"><div class="nudge"><button onclick="nudge('ed-start',-5)">−5s</button><button onclick="nudge('ed-start',-1)">−1s</button><button onclick="nudge('ed-start',1)">+1s</button><button onclick="nudge('ed-start',5)">+5s</button></div></div>
-          <div><label>Fim</label><input id="ed-end"><div class="nudge"><button onclick="nudge('ed-end',-5)">−5s</button><button onclick="nudge('ed-end',-1)">−1s</button><button onclick="nudge('ed-end',1)">+1s</button><button onclick="nudge('ed-end',5)">+5s</button></div></div>
+          <div><label class="l">Começa em</label><input id="ed-start"><div class="nudge"><button onclick="nudge('ed-start',-5)">−5s</button><button onclick="nudge('ed-start',-1)">−1s</button><button onclick="nudge('ed-start',1)">+1s</button><button onclick="nudge('ed-start',5)">+5s</button></div></div>
+          <div><label class="l">Termina em</label><input id="ed-end"><div class="nudge"><button onclick="nudge('ed-end',-5)">−5s</button><button onclick="nudge('ed-end',-1)">−1s</button><button onclick="nudge('ed-end',1)">+1s</button><button onclick="nudge('ed-end',5)">+5s</button></div></div>
         </div>
         <div class="hint" id="ed-len"></div>
-        <label>O que é falado</label><div class="textbox" id="ed-text"></div>
+        <label class="l">O que é falado</label><div class="textbox" id="ed-text"></div>
       </div>
     </div>
-    <div class="mf"><button onclick="closeEditor()">Cancelar</button><button class="primary" onclick="saveEdit()">Renderizar de novo</button></div>
+    <div class="mf"><button onclick="closeEditor()">Cancelar</button><button class="primary" onclick="saveEdit()">Salvar e gerar de novo</button></div>
   </div>
 </div>
 <div class="toast" id="toast"></div>
@@ -387,28 +397,19 @@ summary{cursor:pointer;color:var(--muted);font-size:14px;padding:6px 0}
 <script>
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let CFG = null, MODELS = null, STATE = {projects: [], downloads: {}};
+let CFG = null, MODELS = null, MACHINE = null, STATE = {projects: [], downloads: {}};
 
-const PRESETS = {
-  llm: [
-    ['Groq (grátis com limites)', 'https://api.groq.com/openai/v1', 'llama-3.3-70b-versatile'],
-    ['Google Gemini (grátis com limites)', 'https://generativelanguage.googleapis.com/v1beta/openai', 'gemini-2.5-flash'],
-    ['OpenRouter (modelos :free)', 'https://openrouter.ai/api/v1', 'meta-llama/llama-3.3-70b-instruct:free'],
-    ['OpenAI', 'https://api.openai.com/v1', 'gpt-4o-mini'],
-    ['Ollama (no seu PC)', 'http://localhost:11434/v1', 'llama3.2'],
-    ['LM Studio (no seu PC)', 'http://localhost:1234/v1', 'local-model'],
-  ],
-  stt: [
-    ['Groq (grátis com limites)', 'https://api.groq.com/openai/v1', 'whisper-large-v3-turbo'],
-    ['OpenAI', 'https://api.openai.com/v1', 'whisper-1'],
-  ],
-};
-const REC = {whisper: 'ggml-small.bin', whisperLight: 'ggml-base.bin', llm: 'qwen2.5-3b-instruct-q4_k_m.gguf', llmId: 'qwen2.5-3b'};
 const DURS = [['Curtos', 15, 30], ['Médios', 30, 60], ['Longos', 60, 90]];
-const ASPECTS = [['9:16', '9:16 vertical'], ['1:1', '1:1'], ['4:5', '4:5'], ['16:9', '16:9']];
-const CROPS = [['face', 'Seguir rosto'], ['center', 'Centro'], ['blur', 'Fundo desfocado']];
-const FIELDS = ['stt_provider','whisper_model','language','stt_api_base','stt_api_key','stt_api_model','llm_provider','llm_api_base','llm_api_key','llm_api_model','llm_local_model','llm_ctx','extra_prompt','min_len','max_len','quality','subtitles','sub_font','sub_size','sub_color','sub_highlight','sub_position','sub_uppercase','words_per_line','threads','ytdlp_args'];
-const NUM = new Set(['llm_ctx','min_len','max_len','sub_size','words_per_line','threads']);
+const ASPECTS = [['9:16','Vertical',9,16], ['1:1','Quadrado',12,12], ['16:9','Horizontal',16,9]];
+const CROPS = [['face','Seguir rosto'], ['center','Centralizar'], ['blur','Vídeo inteiro']];
+const STYLES = [
+  {id:'classic', name:'Clássico', font:'Anton', color:'#FFFFFF', hl:'#FFE000', upper:true},
+  {id:'modern', name:'Moderno', font:'Poppins', color:'#FFFFFF', hl:'#B18CFF', upper:false},
+  {id:'neon', name:'Neon', font:'Anton', color:'#FFFFFF', hl:'#3DFF8F', upper:true},
+  {id:'pink', name:'Pop', font:'Poppins', color:'#FFFFFF', hl:'#FF5CA8', upper:true},
+];
+const SIZES = [['Pequeno',70],['Médio',90],['Grande',115]];
+const POSITIONS = [['bottom','Embaixo'],['middle','No meio'],['top','Em cima']];
 
 function toast(msg, ms=3500){ const t=$('#toast'); t.textContent=msg; t.classList.add('on'); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('on'), ms); }
 async function api(path, opts={}){
@@ -416,102 +417,112 @@ async function api(path, opts={}){
   if (o.body && !(o.body instanceof FormData)) { o.headers={'content-type':'application/json'}; o.body=JSON.stringify(o.body); }
   const r = await fetch(path, o);
   const j = await r.json().catch(()=>({}));
-  if (!r.ok) throw new Error(j.error || ('HTTP '+r.status));
+  if (!r.ok) throw new Error(j.error || ('Erro '+r.status));
   return j;
 }
 const fmt = t => { t=Math.max(0,t||0); const m=Math.floor(t/60), s=(t%60); return m+':'+(s<10?'0':'')+s.toFixed(1); };
 const parseT = v => { v=String(v).trim(); if(v.includes(':')) return v.split(':').reduce((a,p)=>a*60+parseFloat(p||0),0); return parseFloat(v); };
-const sizeTxt = mb => mb>=1000 ? (mb/1000).toFixed(1)+' GB' : mb+' MB';
-async function saveCfg(){ await api('/api/config', {method:'POST', body:CFG}); }
+const gb = mb => (mb/1000).toFixed(1).replace('.',',')+' GB';
+let saveTimer = null;
+function setCfg(patch){ Object.assign(CFG, patch); clearTimeout(saveTimer); saveTimer = setTimeout(()=>api('/api/config',{method:'POST',body:CFG}).catch(e=>toast(e.message)), 250); renderAll(); }
 
-// ---------- Situação da configuração ----------
+// ---------- Situação ----------
 function installed(kind, file){ return !!MODELS && MODELS[kind].some(m=>m.installed && m.file===file); }
-function sttReady(){ return CFG.stt_provider==='api' ? !!CFG.stt_api_key.trim() : installed('whisper', CFG.whisper_model); }
-function aiReady(){
-  if (CFG.llm_provider==='none') return true;
-  if (CFG.llm_provider==='api') return !!CFG.llm_api_model.trim() && (!!CFG.llm_api_key.trim() || /localhost|127\.0\.0\.1/.test(CFG.llm_api_base));
-  return installed('llm', CFG.llm_local_model);
+function activeDownloads(){ return Object.values(STATE.downloads||{}).filter(d=>!d.done); }
+/** Já escolheu como trabalhar? (os arquivos que faltarem são baixados sozinhos) */
+function configured(){
+  if (!CFG || !MODELS) return true;
+  const stt = CFG.stt_provider==='api' ? !!CFG.stt_api_key : (!!CFG.tier || installed('whisper', CFG.whisper_model));
+  const ai = CFG.llm_provider==='none' || (CFG.llm_provider==='api' ? !!CFG.llm_api_key || /localhost|127\.0\.0\.1/.test(CFG.llm_api_base) : (!!CFG.tier || installed('llm', CFG.llm_local_model)));
+  return stt && ai;
 }
-function sttLabel(){ return CFG.stt_provider==='api' ? 'API: '+CFG.stt_api_model : 'Local: '+CFG.whisper_model.replace('ggml-','').replace('.bin',''); }
-function aiLabel(){ return CFG.llm_provider==='none' ? 'Sem IA' : CFG.llm_provider==='api' ? 'API: '+CFG.llm_api_model : 'Local: '+(CFG.llm_local_model.replace(/\.gguf$/,'')||'nenhum'); }
+function modeOf(){ return CFG.llm_provider==='none' ? 'none' : (CFG.llm_provider==='api' ? 'online' : 'local'); }
+function tierInfo(id){ return MACHINE?.tiers.find(t=>t.id===id); }
 
 function renderStatus(){
-  if (!CFG || !MODELS) return;
-  const s = sttReady(), a = aiReady();
-  $('#dot-stt').className = 'dot '+(s?'ok':'bad'); $('#pill-stt').textContent = 'Transcrição · '+sttLabel();
-  $('#dot-ai').className = 'dot '+(a?'ok':'bad'); $('#pill-ai').textContent = 'IA · '+aiLabel();
-  const dls = Object.values(STATE.downloads||{}).filter(d=>!d.done || d.error);
-  $('#setup').style.display = (!s || !a || dls.some(d=>!d.done)) ? '' : 'none';
-  $('#chk-stt').innerHTML = (s?'✅':'⬜')+' Transcrição '+(s?'pronta':'pendente')+' <span class="muted">('+esc(sttLabel())+')</span>';
-  $('#chk-ai').innerHTML = (a?'✅':'⬜')+' Escolha dos trechos '+(a?'pronta':'pendente')+' <span class="muted">('+esc(aiLabel())+')</span>';
-  $('#setup-dl').innerHTML = dls.map(d=>{
-    const p = d.total ? d.downloaded/d.total*100 : 0;
-    return `<div class="dlrow"><span style="min-width:220px">⬇ ${esc(d.file)}</span>${d.error?`<span style="color:var(--bad)">${esc(d.error)}</span>`:`<div class="bar"><div style="width:${p}%"></div></div><span>${p.toFixed(0)}%</span>`}</div>`;
-  }).join('');
-  const ready = s && a;
-  $('#go').disabled = !ready;
-  $('#go-hint').textContent = ready ? '' : 'Conclua os primeiros passos acima para começar.';
+  const s = $('#status'), t = $('#status-t'), dls = activeDownloads();
+  if (!configured()){ s.className='chip-status warn'; t.textContent='Configure para começar'; }
+  else if (dls.length){
+    const tot = dls.reduce((a,d)=>a+(d.total||0),0), got = dls.reduce((a,d)=>a+d.downloaded,0);
+    s.className='chip-status busy'; t.textContent = 'Preparando… '+(tot?Math.round(got/tot*100):0)+'%';
+  } else { s.className='chip-status ok'; t.textContent='Pronto para criar'; }
+  $('#welcome').style.display = configured() ? 'none' : '';
+  // Progresso da preparação (downloads da primeira vez)
+  const prep = $('#preparing');
+  if (configured() && dls.length){
+    const tot = dls.reduce((a,d)=>a+(d.total||0),0), got = dls.reduce((a,d)=>a+d.downloaded,0), p = tot?got/tot*100:0;
+    prep.style.display=''; $('#prep-title').textContent='Preparando o ClipForge…'; $('#prep-ring').style.setProperty('--p', p.toFixed(0)); $('#prep-pct').textContent = p.toFixed(0)+'%';
+    $('#prep-sub').textContent = `Baixando a inteligência artificial: ${gb(got/1e6)} de ${gb(tot/1e6)}. Só acontece uma vez. Você já pode colar um link: o vídeo começa assim que terminar.`;
+  } else {
+    // Download que falhou e o arquivo ainda não está no computador
+    const failed = Object.values(STATE.downloads||{}).filter(d=>d.done && d.error && !installed(d.kind, d.file));
+    if (configured() && failed.length){
+      prep.style.display=''; $('#prep-title').textContent='A preparação não terminou'; $('#prep-ring').style.setProperty('--p', 0); $('#prep-pct').textContent = '!';
+      $('#prep-sub').innerHTML = 'Não foi possível baixar a inteligência artificial. Verifique sua internet. <button class="small" style="margin-left:6px" onclick="retryDownloads()">Tentar de novo</button>';
+    } else prep.style.display='none';
+  }
+}
+async function retryDownloads(){
+  const failed = Object.values(STATE.downloads||{}).filter(d=>d.done && d.error);
+  for (const d of failed){ const m = MODELS[d.kind].find(x=>x.file===d.file); if (m) await api('/api/models/download',{method:'POST',body:{kind:d.kind,id:m.id}}).catch(()=>{}); }
+  toast('Tentando baixar de novo…'); poll();
 }
 
-// ---------- Primeiros passos ----------
-async function startDownload(kind, id){ try { await api('/api/models/download',{method:'POST',body:{kind,id}}); } catch(e){ if(!/andamento/.test(e.message)) toast(e.message); } }
-async function presetLocal(){
-  Object.assign(CFG, {stt_provider:'local', whisper_model:REC.whisper, llm_provider:'local', llm_local_model:REC.llm});
-  await saveCfg();
-  if (!installed('whisper', REC.whisper)) await startDownload('whisper','small');
-  if (!installed('llm', REC.llm)) await startDownload('llm', REC.llmId);
-  toast('Baixando os modelos. Você pode acompanhar aqui.'); await refresh();
+// ---------- Boas-vindas ----------
+function tierCards(el, selected, onPick){
+  const rec = MACHINE?.recommended;
+  el.innerHTML = (MACHINE?.tiers||[]).map(t=>`<div class="tier ${t.id===selected?'on':''}" onclick="${onPick}('${t.id}')">
+    ${t.id===rec?'<div class="badge-rec">Ideal para o seu PC</div>':''}
+    <b>${esc(t.name)}</b><div class="s">${esc(t.desc)}</div><div class="z">Download único de ${gb(t.size_mb)} · ${t.min_ram_gb} GB de memória ou mais</div></div>`).join('');
 }
-async function presetGroq(){
-  const key = $('#groq-key').value.trim(); if (!key) return toast('Cole a chave da Groq primeiro.');
-  Object.assign(CFG, {stt_provider:'api', stt_api_base:PRESETS.stt[0][1], stt_api_model:PRESETS.stt[0][2], stt_api_key:key,
-    llm_provider:'api', llm_api_base:PRESETS.llm[0][1], llm_api_model:PRESETS.llm[0][2], llm_api_key:key});
-  await saveCfg(); toast('Pronto! Usando a Groq.'); await refresh();
+function renderWelcome(){
+  if (!MACHINE) return;
+  const t = tierInfo(MACHINE.recommended);
+  $('#reco-title').textContent = `Recomendado para você: ${t.name}`;
+  $('#reco-sub').textContent = (MACHINE.ram_gb ? `Seu computador tem ${String(MACHINE.ram_gb).replace('.',',')} GB de memória. ` : '') + `Baixa ${gb(t.size_mb)} uma única vez e depois funciona sem internet.`;
+  tierCards($('#tiers-welcome'), null, 'setupLocal');
 }
-async function presetNone(){
-  Object.assign(CFG, {stt_provider:'local', whisper_model:REC.whisperLight, llm_provider:'none'});
-  await saveCfg();
-  if (!installed('whisper', REC.whisperLight)) await startDownload('whisper','base');
-  await refresh();
-}
+function togglePanel(id){ ['p-tiers','p-online'].forEach(p=>$('#'+p).style.display = p===id && $('#'+p).style.display==='none' ? '' : 'none'); }
+async function setup(body, msg){ try { await api('/api/setup',{method:'POST',body}); await refresh(); toast(msg, 5000); } catch(e){ toast(e.message); } }
+function setupLocal(tier){ setup({mode:'local', tier: typeof tier==='string' ? tier : undefined}, 'Tudo certo! Os arquivos estão sendo baixados. Você já pode colar um link.'); }
+function setupOnline(){ setup({mode:'online', key:$('#groq-key').value}, 'Pronto! O ClipForge vai usar o serviço online.'); }
+function setupNone(){ setup({mode:'none'}, 'Pronto! Os cortes serão escolhidos automaticamente.'); }
 
 // ---------- Opções rápidas ----------
-async function quickSet(patch){ Object.assign(CFG, patch); renderQuick(); try { await saveCfg(); } catch(e){ toast(e.message); } }
-function bump(d){ quickSet({max_clips: Math.min(30, Math.max(1, (CFG.max_clips||6)+d))}); }
-function segHtml(items, isOn, onclick){ return items.map((it,i)=>`<button class="${isOn(it)?'on':''}" onclick="${onclick}(${i})">${esc(it.label)}</button>`).join(''); }
+function quickSet(p){ setCfg(p); }
+function bump(d){ setCfg({max_clips: Math.min(30, Math.max(1, (CFG.max_clips||6)+d))}); }
+function chips(el, items, isOn, fn){ el.innerHTML = items.map((it,i)=>`<button class="${isOn(it)?'on':''}" onclick="${fn}(${i})">${it.html}</button>`).join(''); }
 function renderQuick(){
   $('#q-count').textContent = CFG.max_clips;
-  const durs = DURS.map(([l,a,b])=>({label:`${l} ${a}–${b}s`, a, b}));
-  let html = segHtml(durs, d=>d.a===CFG.min_len && d.b===CFG.max_len, 'setDur');
-  if (!durs.some(d=>d.a===CFG.min_len && d.b===CFG.max_len)) html += `<button class="on" onclick="openSettings('p-subs')">${CFG.min_len}–${CFG.max_len}s</button>`;
-  $('#q-dur').innerHTML = html;
-  $('#q-aspect').innerHTML = segHtml(ASPECTS.map(([v,l])=>({v,label:l})), x=>x.v===CFG.aspect, 'setAspect');
-  $('#q-crop').innerHTML = segHtml(CROPS.map(([v,l])=>({v,label:l})), x=>x.v===CFG.crop_mode, 'setCrop');
-  $('#q-subs').checked = !!CFG.subtitles;
+  chips($('#q-dur'), DURS.map(([l,a,b])=>({html:`${l} <span class="muted" style="font-size:12px">${a}–${b}s</span>`,a,b})), d=>d.a===CFG.min_len && d.b===CFG.max_len, 'setDur');
+  chips($('#q-aspect'), ASPECTS.map(([v,l,w,h])=>({v,html:`<span class="ar" style="width:${w}px;height:${h}px"></span> ${l}`})), x=>x.v===CFG.aspect, 'setAspect');
+  chips($('#q-crop'), CROPS.map(([v,l])=>({v,html:l})), x=>x.v===CFG.crop_mode, 'setCrop');
+  $('#q-subs').checked = !!CFG.subtitles; $('#q-subs-t').textContent = CFG.subtitles ? 'Ligadas' : 'Desligadas';
 }
-function setDur(i){ quickSet({min_len:DURS[i][1], max_len:DURS[i][2]}); }
-function setAspect(i){ quickSet({aspect:ASPECTS[i][0]}); }
-function setCrop(i){ quickSet({crop_mode:CROPS[i][0]}); }
+function setDur(i){ setCfg({min_len:DURS[i][1], max_len:DURS[i][2]}); }
+function setAspect(i){ setCfg({aspect:ASPECTS[i][0]}); }
+function setCrop(i){ setCfg({crop_mode:CROPS[i][0]}); }
 
 // ---------- Projetos ----------
 function srcTab(t){
   $('#tab-link').classList.toggle('on', t==='link'); $('#tab-file').classList.toggle('on', t==='file');
   $('#src-link').style.display = t==='link'?'':'none'; $('#src-file').style.display = t==='file'?'':'none';
-  $('#go').style.display = t==='link'?'':'none';
 }
+function guard(){ if (!configured()){ toast('Primeiro escolha como o ClipForge vai trabalhar (logo acima).'); window.scrollTo({top:0,behavior:'smooth'}); return false; } return true; }
 async function submitUrl(){
+  if (!guard()) return;
   const url = $('#url').value.trim(); if(!url) return toast('Cole o link de um vídeo.');
-  try { await api('/api/projects', {method:'POST', body:{url}}); $('#url').value=''; toast('Projeto criado. Acompanhe abaixo.'); poll(); }
+  if (!/^https?:\/\//i.test(url)) return toast('Isso não parece um link. Ele deve começar com https://');
+  try { await api('/api/projects', {method:'POST', body:{url}}); $('#url').value=''; toast('Começamos! Acompanhe logo abaixo.'); poll(); }
   catch(e){ toast(e.message); }
 }
 function upload(f){
-  if(!f) return;
-  if (!(sttReady() && aiReady())) return toast('Conclua os primeiros passos antes de enviar um vídeo.');
+  if(!f || !guard()) return;
   const fd = new FormData(); fd.append('file', f);
   const xhr = new XMLHttpRequest(); const bar=$('#upbar'); bar.style.display='block';
   xhr.upload.onprogress = e => { if(e.lengthComputable) bar.firstElementChild.style.width=(e.loaded/e.total*100)+'%'; };
-  xhr.onload = () => { bar.style.display='none'; $('#file').value=''; if(xhr.status>=300){ try{toast(JSON.parse(xhr.responseText).error)}catch{toast('Falha no envio')} } else toast('Vídeo enviado. Acompanhe abaixo.'); poll(); };
-  xhr.onerror = () => { bar.style.display='none'; toast('Falha no envio'); };
+  xhr.onload = () => { bar.style.display='none'; $('#file').value=''; if(xhr.status>=300){ try{toast(JSON.parse(xhr.responseText).error)}catch{toast('Não foi possível enviar o arquivo.')} } else toast('Vídeo enviado! Acompanhe logo abaixo.'); poll(); };
+  xhr.onerror = () => { bar.style.display='none'; toast('Não foi possível enviar o arquivo.'); };
   xhr.open('POST','/api/upload'); xhr.send(fd);
 }
 const drop = $('#drop');
@@ -520,53 +531,57 @@ const drop = $('#drop');
 drop.addEventListener('drop', e=>upload(e.dataTransfer.files[0]));
 
 async function act(id, what){
-  if (what==='delete' && !confirm('Apagar este projeto e todos os clipes?')) return;
+  if (what==='delete' && !confirm('Apagar este vídeo e todos os clipes dele?')) return;
   try { await api(`/api/projects/${id}/${what}`, {method:'POST'}); poll(); } catch(e){ toast(e.message); }
 }
+function downloadAll(id){
+  const p = STATE.projects.find(x=>x.id===id); if (!p) return;
+  const done = p.clips.filter(c=>c.status==='done').sort((a,b)=>b.score-a.score);
+  done.forEach((c,i)=>setTimeout(()=>{ const a=document.createElement('a'); a.href=`/files/${id}/${c.name}.mp4?v=${c.rev}`; a.download=fileName(c)+'.mp4'; document.body.appendChild(a); a.click(); a.remove(); }, i*700));
+  toast(`Baixando ${done.length} clipes…`);
+}
+const fileName = c => (c.title||c.name).replace(/[\\/:*?"<>|]/g,'').slice(0,60) || c.name;
 function aspectClass(){ const a=CFG?.aspect; return a==='1:1'?'r11':a==='4:5'?'r45':a==='16:9'?'r169':''; }
 function scoreClass(s){ return s>=80?'hi':s>=60?'mid':'lo'; }
-const STEPS = ['Baixar', 'Transcrever', 'Escolher trechos', 'Gerar clipes'];
+const FLOW = [['⬇','Baixar'], ['🎙','Ouvir'], ['🧠','Escolher momentos'], ['🎬','Criar clipes']];
 function stepOf(p){
-  if (p.status==='done') return 4;
   const s = p.stage||'';
   if (/Gerando|Renderizando/.test(s)) return 3;
-  if (/Analisando|Carregando modelo|Conectando|Buscando|Trechos/.test(s)) return 2;
-  if (/^Baixando|Juntando/.test(s)) return 0;
-  if (/Transcrevendo|Extraindo/.test(s)) return 1;
+  if (/Analisando|Carregando modelo|Conectando|Buscando|Trechos|inteligência/.test(s)) return 2;
+  if (/Transcrevendo|Extraindo|transcrição/.test(s)) return 1;
+  if (/Baixando|Juntando|baixador|login/.test(s)) return 0;
   return p.clips.length ? 3 : 0;
 }
-const STATUS = {queued:'Na fila', running:'Processando', done:'Pronto', error:'Erro', cancelled:'Cancelado'};
+const STATUS = {queued:'Na fila', running:'Criando…', done:'Pronto', error:'Não deu certo', cancelled:'Cancelado'};
+const friendlyStage = s => (s||'').replace('Transcrevendo (whisper.cpp)','Ouvindo o vídeo').replace(/Transcrevendo via API.*/,'Ouvindo o vídeo').replace(/^Transcrevendo$/,'Ouvindo o vídeo').replace('Extraindo áudio','Preparando o áudio').replace(/Analisando com IA.*/,'A inteligência artificial está assistindo').replace(/Buscando mais trechos.*/,'Procurando mais momentos bons').replace('Carregando modelo de IA local','Ligando a inteligência artificial').replace('Conectando à IA','Conectando à inteligência artificial').replace(/Gerando clipe (\d+)\/(\d+)/,'Criando o clipe $1 de $2');
 
 function clipHtml(p, c){
   const base = `/files/${p.id}/${c.name}`;
   let media;
   if (c.status==='done') media = `<video controls preload="none" poster="${base}.jpg?v=${c.rev}" src="${base}.mp4?v=${c.rev}"></video>`;
-  else if (c.status==='rendering') media = `<div class="ph2">Gerando… ${Math.round(c.progress*100)}%<div class="mini"><div style="width:${c.progress*100}%"></div></div></div>`;
-  else if (c.status==='error') media = `<div class="ph2" style="color:var(--bad)">Erro ao gerar<br><small>${esc((c.error||'').slice(0,160))}</small></div>`;
-  else media = `<div class="ph2">Na fila…</div>`;
-  const fname = (c.title||c.name).replace(/[\\/:*?"<>|]/g,'').slice(0,60) || c.name;
+  else if (c.status==='rendering') media = `<div class="wait">Criando… ${Math.round(c.progress*100)}%<div class="mini"><div style="width:${c.progress*100}%"></div></div></div>`;
+  else if (c.status==='error') media = `<div class="wait" style="color:var(--bad)">Não foi possível criar este clipe.<br>Clique em ✎ Ajustar e tente de novo.</div>`;
+  else media = `<div class="wait">Na fila…</div>`;
   return `<div class="clip ${aspectClass()}" data-k="${p.id}-${c.index}">
-    <div class="media"><div class="badge ${scoreClass(c.score)}" title="Potencial viral">${c.score}</div><div class="dur">${(c.end-c.start).toFixed(0)}s</div>${media}</div>
+    <div class="media"><div class="pill l ${scoreClass(c.score)}" title="Chance de viralizar">🔥 ${c.score}</div><div class="pill r">${(c.end-c.start).toFixed(0)}s</div>${media}</div>
     <div class="ci">
       <div class="t">${esc(c.title)}</div>
-      <div class="m">${fmt(c.start)} → ${fmt(c.end)}</div>
       ${c.reason?`<div class="r">${esc(c.reason)}</div>`:''}
       <div class="acts">
-        ${c.status==='done'?`<a class="btn small" href="${base}.mp4?v=${c.rev}" download="${esc(fname)}.mp4">⬇ Baixar</a>`:''}
+        ${c.status==='done'?`<a class="btn small primary" style="background:var(--grad);border:none;color:#fff" href="${base}.mp4?v=${c.rev}" download="${esc(fileName(c))}.mp4">⬇ Baixar</a>`:''}
         <button class="small" onclick="openEditor('${p.id}',${c.index})">✎ Ajustar</button>
         <button class="small" onclick="copyTitle('${p.id}',${c.index})" title="Copiar título">⧉</button>
       </div>
     </div></div>`;
 }
 function findClip(id, idx){ const p = STATE.projects.find(x=>x.id===id); return [p, p?.clips.find(c=>c.index===idx)]; }
-function copyTitle(id, idx){ const [,c]=findClip(id,idx); navigator.clipboard?.writeText(c.title).then(()=>toast('Título copiado')); }
+function copyTitle(id, idx){ const [,c]=findClip(id,idx); navigator.clipboard?.writeText(c.title).then(()=>toast('Título copiado!')); }
 
 const cards = new Map();
 function renderProjects(){
-  const root = $('#projects');
-  const list = STATE.projects;
-  $('#count').textContent = list.length ? `${list.length} ${list.length>1?'projetos':'projeto'}` : '';
-  if (!list.length){ root.innerHTML = '<div class="card empty">Nenhum projeto ainda.<br>Cole um link acima e clique em <b>Gerar clipes</b>. 🎬</div>'; cards.clear(); return; }
+  const root = $('#projects'); const list = STATE.projects;
+  $('#count').textContent = list.length ? `${list.length} ${list.length>1?'vídeos':'vídeo'}` : '';
+  if (!list.length){ root.innerHTML = '<div class="card empty"><div class="big">🎬</div>Seus clipes vão aparecer aqui.<br>Cole um link acima para começar.</div>'; cards.clear(); return; }
   if (root.querySelector('.empty')) root.innerHTML='';
   const seen = new Set();
   list.forEach((p, i) => {
@@ -574,42 +589,46 @@ function renderProjects(){
     let el = cards.get(p.id);
     if (!el){
       el = document.createElement('div'); el.className='card proj';
-      el.innerHTML = `<div class="ph"><div class="grow"><div class="pt"></div><div class="ps"></div></div><span class="status"></span></div>
-        <div class="prog"><div class="steps"></div><div class="bar" style="margin-top:12px"><div></div></div><div class="stage" style="margin-top:6px"></div></div>
-        <div class="errbox"></div><div class="pacts"></div><div class="clips"></div>`;
+      el.innerHTML = `<div class="ph"><div class="grow"><div class="pt"></div><div class="ps"></div></div><span class="st"></span></div>
+        <div class="prog"><div class="flow"></div><div class="bar" style="margin-top:14px"><div></div></div><div class="stage" style="margin-top:7px"></div></div>
+        <div class="msgs"></div><div class="pacts"></div><div class="clips"></div>`;
       cards.set(p.id, el);
     }
     if (root.children[i] !== el) root.insertBefore(el, root.children[i] || null);
     el.querySelector('.pt').textContent = p.title || p.source;
-    const dur = p.duration ? ` · ${fmt(p.duration)} de vídeo` : '';
-    const nclips = p.clips.filter(c=>c.status==='done').length;
-    el.querySelector('.ps').textContent = (p.source.startsWith('http')?p.source:'Arquivo: '+p.source) + dur + (nclips?` · ${nclips} ${nclips>1?'clipes':'clipe'}`:'');
-    const st = el.querySelector('.status'); st.className='status '+p.status; st.textContent=STATUS[p.status]||p.status;
+    const done = p.clips.filter(c=>c.status==='done').length;
+    el.querySelector('.ps').textContent = [p.duration?`Vídeo de ${fmt(p.duration).replace(/\.\d$/,'')}`:'', done?`${done} ${done>1?'clipes':'clipe'}`:''].filter(Boolean).join(' · ');
+    const st = el.querySelector('.st'); st.className='st '+p.status; st.textContent=STATUS[p.status]||p.status;
     const active = p.status==='running'||p.status==='queued';
     el.querySelector('.prog').style.display = active ? '' : 'none';
     if (active){
       const k = stepOf(p);
-      el.querySelector('.steps').innerHTML = STEPS.map((n,j)=>`<div class="st ${j<k?'ok':j===k?'on':''}"><span class="n">${j<k?'✓':j+1}</span>${n}</div>`).join('');
+      el.querySelector('.flow').innerHTML = FLOW.map(([ic,n],j)=>`<div class="fs ${j<k?'ok':j===k?'on':''}"><i>${j<k?'✓':ic}</i>${n}</div>`).join('');
       el.querySelector('.bar>div').style.width = (p.progress*100).toFixed(1)+'%';
-      el.querySelector('.stage').textContent = `${p.stage||''} ${p.status==='running'?Math.round(p.progress*100)+'%':''}`;
+      el.querySelector('.stage').textContent = p.status==='queued' ? 'Aguardando o vídeo anterior terminar…' : `${friendlyStage(p.stage)}… ${Math.round(p.progress*100)}%`;
     }
-    const eb = el.querySelector('.errbox'); const errTxt = (p.status==='error'||p.status==='cancelled') ? (p.error||'') : '';
+    const msgs = el.querySelector('.msgs');
+    const errTxt = (p.status==='error') ? (p.error||'') : (p.status==='cancelled' ? 'Você cancelou este vídeo.' : '');
     const noteTxt = !active && p.notice ? p.notice : '';
-    if (eb._t !== errTxt+noteTxt){ eb._t = errTxt+noteTxt; eb.innerHTML = (errTxt ? `<div class="err">${esc(errTxt)}</div>` : '') + (noteTxt ? `<div class="note">ℹ ${esc(noteTxt)}</div>` : ''); }
-    const actsKey = p.status + (p.clips.length>0);
-    const acts = el.querySelector('.pacts');
+    const key = errTxt+'|'+noteTxt+'|'+(p.error_detail||'');
+    if (msgs._k !== key){
+      msgs._k = key;
+      msgs.innerHTML = (errTxt ? `<div class="err">😕 ${esc(errTxt)}${p.error_detail?`<details><summary>Detalhes técnicos</summary><pre>${esc(p.error_detail)}</pre></details>`:''}</div>` : '') + (noteTxt ? `<div class="note">💡 ${esc(noteTxt)}</div>` : '');
+      msgs.style.display = (errTxt||noteTxt) ? '' : 'none';
+    }
+    const acts = el.querySelector('.pacts'); const actsKey = p.status+done;
     if (acts._k !== actsKey){
       acts._k = actsKey;
-      acts.innerHTML = (active ? `<button class="small" onclick="act('${p.id}','cancel')">■ Cancelar</button>` :
-        `<button class="small" onclick="act('${p.id}','retry')" title="Escolhe os trechos de novo com os ajustes atuais">⟳ ${p.status==='done'?'Gerar outros clipes':'Tentar de novo'}</button>
-         <button class="small ghost" onclick="act('${p.id}','retranscribe')" title="Refaz a transcrição com o modelo atual">🎙 Refazer transcrição</button>`) +
-        `<button class="small ghost" onclick="act('${p.id}','open')">📂 Abrir pasta</button>
-         <span class="grow"></span><button class="small ghost danger" onclick="act('${p.id}','delete')">🗑 Apagar</button>`;
+      acts.innerHTML = (active ? `<button class="small" onclick="act('${p.id}','cancel')">■ Parar</button>` :
+        (done>1?`<button class="small primary" onclick="downloadAll('${p.id}')">⬇ Baixar todos</button>`:'') +
+        `<button class="small" onclick="act('${p.id}','retry')" title="Escolhe os momentos de novo com as opções atuais">⟳ ${p.status==='done'?'Criar outros clipes':'Tentar de novo'}</button>`) +
+        `<button class="small ghost" onclick="act('${p.id}','open')">📂 Abrir pasta</button><span class="grow"></span>` +
+        (active?'':`<button class="small ghost" onclick="act('${p.id}','retranscribe')" title="Ouve o vídeo de novo do zero">🎙 Ouvir de novo</button>`) +
+        `<button class="small ghost danger" onclick="act('${p.id}','delete')">🗑 Apagar</button>`;
     }
     const sig = JSON.stringify(p.clips.map(c=>[c.status,c.rev,c.title,c.start,c.end,c.status==='rendering'?Math.round(c.progress*20):0])) + aspectClass();
     const box = el.querySelector('.clips');
     if (box._s !== sig){
-      // Atualiza só os clipes que mudaram (não interrompe vídeos tocando)
       box._s = sig;
       const old = new Map([...box.children].map(n => [n.dataset.k, n]));
       const nodes = [];
@@ -629,127 +648,109 @@ function renderProjects(){
 let EDIT = null;
 function openEditor(id, idx){
   const [p, c] = findClip(id, idx); if (!c) return;
-  if (p.status==='running'||p.status==='queued') return toast('Aguarde o processamento terminar.');
+  if (p.status==='running'||p.status==='queued') return toast('Espere este vídeo terminar para ajustar os clipes.');
   EDIT = {id, idx};
   $('#ed-title').value = c.title; $('#ed-start').value = fmt(c.start); $('#ed-end').value = fmt(c.end);
   $('#ed-text').textContent = c.text || '';
   const v = $('#ed-video'), has = c.status==='done';
   v.src = has ? `/files/${id}/${c.name}.mp4?v=${c.rev}` : '';
-  $('#ed-vbox').style.display = has ? '' : 'none';
-  $('#ed-box').style.gridTemplateColumns = has ? '' : '1fr';
+  $('#ed-vbox').style.display = has ? '' : 'none'; $('#ed-box').style.gridTemplateColumns = has ? '' : '1fr';
   edLen(); $('#editor').classList.add('on');
 }
 function closeEditor(){ $('#editor').classList.remove('on'); $('#ed-video').pause(); }
 function nudge(id, d){ const el=$('#'+id); el.value = fmt(Math.max(0, parseT(el.value)+d)); edLen(); }
-function edLen(){ const d = parseT($('#ed-end').value)-parseT($('#ed-start').value); $('#ed-len').textContent = isFinite(d) ? `Duração: ${d.toFixed(1)} s` : ''; }
+function edLen(){ const d = parseT($('#ed-end').value)-parseT($('#ed-start').value); $('#ed-len').textContent = isFinite(d) ? `Duração: ${d.toFixed(1).replace('.',',')} segundos` : ''; }
 ['ed-start','ed-end'].forEach(i=>$('#'+i).addEventListener('input', edLen));
 async function saveEdit(){
-  try { await api(`/api/projects/${EDIT.id}/clips/${EDIT.idx}/render`, {method:'POST', body:{start:parseT($('#ed-start').value), end:parseT($('#ed-end').value), title:$('#ed-title').value}}); closeEditor(); toast('Gerando o clipe de novo…'); poll(); }
+  try { await api(`/api/projects/${EDIT.id}/clips/${EDIT.idx}/render`, {method:'POST', body:{start:parseT($('#ed-start').value), end:parseT($('#ed-end').value), title:$('#ed-title').value}}); closeEditor(); toast('Criando o clipe de novo…'); poll(); }
   catch(e){ toast(e.message); }
 }
 
 // ---------- Ajustes ----------
-function fillSelect(sel, opts, value){
-  sel.innerHTML = opts.map(([v,t])=>`<option value="${esc(v)}">${esc(t)}</option>`).join('');
-  if (value && !opts.some(o=>o[0]===value)) sel.insertAdjacentHTML('beforeend', `<option value="${esc(value)}">${esc(value)} (não baixado)</option>`);
-  sel.value = value || (opts[0]?.[0] ?? '');
+function styleOf(){ return STYLES.find(s=>s.font===CFG.sub_font && s.hl.toLowerCase()===String(CFG.sub_highlight).toLowerCase() && !!s.upper===!!CFG.sub_uppercase)?.id; }
+function renderSettings(){
+  if (!$('#settings').classList.contains('on')) return;
+  const m = modeOf();
+  document.querySelectorAll('#modes .mode').forEach(x=>x.classList.toggle('on', x.dataset.v===m));
+  $('#m-local').style.display = m==='local'?'':'none'; $('#m-online').style.display = m==='online'?'':'none';
+  const curTier = CFG.tier || (MACHINE?.tiers.find(t=>t.llm_file===CFG.llm_local_model)?.id);
+  tierCards($('#tiers-settings'), curTier, 'pickTier');
+  $('#tier-hint').textContent = 'Ao trocar, os arquivos necessários são baixados sozinhos.';
+  const sty = styleOf();
+  $('#styles').innerHTML = STYLES.map(s=>{
+    const w = ['Isso','vai','mudar'].map((x,i)=>{ const t = s.upper?x.toUpperCase():x; return i===1?`<span style="color:${s.hl}">${t}</span>`:t; }).join(' ');
+    return `<div class="sty ${s.id===sty?'on':''}" onclick="pickStyle('${s.id}')"><div class="pv" style="font-family:${s.font};color:${s.color}">${w}</div><div class="nm">${s.name}</div></div>`;
+  }).join('');
+  chips($('#s-pos'), POSITIONS.map(([v,l])=>({v,html:l})), x=>x.v===CFG.sub_position, 'pickPos');
+  chips($('#s-size'), SIZES.map(([l,v])=>({v,html:l})), x=>Math.abs(x.v-CFG.sub_size)<8, 'pickSize');
+  chips($('#s-quality'), [['1080','Alta (1080p)'],['720','Mais rápida (720p)']].map(([v,l])=>({v,html:l})), x=>x.v===CFG.quality, 'pickQuality');
+  $('#s-lang').value = CFG.language; if (document.activeElement!==$('#s-extra')) $('#s-extra').value = CFG.extra_prompt||'';
+  const adv = {'a-llm-base':'llm_api_base','a-llm-model':'llm_api_model','a-llm-key':'llm_api_key','a-stt':'stt_provider','a-stt-base':'stt_api_base','a-stt-model':'stt_api_model','a-stt-key':'stt_api_key','a-ctx':'llm_ctx','a-threads':'threads','a-min':'min_len','a-max':'max_len','a-ytdlp':'ytdlp_args'};
+  for (const [id,f] of Object.entries(adv)) if (document.activeElement!==$('#'+id)) $('#'+id).value = CFG[f];
 }
-function cardPick(group, v){
-  document.querySelectorAll(`#${group} .rc`).forEach(c=>c.classList.toggle('on', c.dataset.v===v));
-  if (group==='stt-cards'){ $('#stt-local').style.display = v==='local'?'':'none'; $('#stt-api').style.display = v==='api'?'':'none'; }
-  else { $('#ai-local').style.display = v==='local'?'':'none'; $('#ai-api').style.display = v==='api'?'':'none'; }
+document.querySelectorAll('#modes .mode').forEach(x=>x.onclick=()=>pickMode(x.dataset.v));
+function pickMode(v){
+  if (v==='online'){ $('#m-local').style.display='none'; $('#m-online').style.display=''; document.querySelectorAll('#modes .mode').forEach(x=>x.classList.toggle('on', x.dataset.v==='online')); return; }
+  if (v==='local') setup({mode:'local', tier: CFG.tier || MACHINE?.recommended}, 'Pronto! Usando a inteligência artificial do seu computador.');
+  if (v==='none') setup({mode:'none', tier: CFG.tier || MACHINE?.recommended}, 'Pronto! Os cortes serão escolhidos automaticamente.');
 }
-['stt-cards','ai-cards'].forEach(g=>document.querySelectorAll(`#${g} .rc`).forEach(c=>c.onclick=()=>cardPick(g, c.dataset.v)));
-const picked = g => document.querySelector(`#${g} .rc.on`)?.dataset.v;
-function applyPreset(kind){
-  const i = $('#'+kind+'_preset').value; if (i==='') return;
-  const [, base, model] = PRESETS[kind][i];
-  $('#'+kind+'_api_base').value = base; $('#'+kind+'_api_model').value = model;
-}
-function readForm(){
-  const c = {...CFG};
-  for (const f of FIELDS){ const el=$('#'+f); if(!el) continue;
-    c[f] = el.type==='checkbox' ? el.checked : NUM.has(f) ? Number(el.value) : el.value; }
-  c.stt_provider = picked('stt-cards') || c.stt_provider;
-  c.llm_provider = picked('ai-cards') || c.llm_provider;
-  return c;
-}
-function writeForm(){
-  for (const f of FIELDS){ const el=$('#'+f); if(!el || f==='whisper_model' || f==='llm_local_model') continue;
-    if (el.type==='checkbox') el.checked=!!CFG[f]; else el.value = CFG[f]; }
-  for (const k of ['llm','stt']){
-    $('#'+k+'_preset').innerHTML = PRESETS[k].map((p,i)=>`<option value="${i}">${esc(p[0])}</option>`).join('') + '<option value="">Personalizado</option>';
-    const i = PRESETS[k].findIndex(p=>p[1]===CFG[k+'_api_base']); $('#'+k+'_preset').value = i>=0 ? String(i) : '';
-  }
-  cardPick('stt-cards', CFG.stt_provider); cardPick('ai-cards', CFG.llm_provider);
-}
-function fillModelSelects(){
-  const w = MODELS.whisper.filter(m=>m.installed).map(m=>[m.file, m.name]);
-  const l = MODELS.llm.filter(m=>m.installed).map(m=>[m.file, m.name]);
-  fillSelect($('#whisper_model'), w.length?w:[['', 'Nenhum modelo baixado']], CFG.whisper_model);
-  fillSelect($('#llm_local_model'), l.length?l:[['', 'Nenhum modelo baixado']], CFG.llm_local_model);
-}
-function showTab(id){
-  document.querySelectorAll('.nav button').forEach(t=>t.classList.toggle('on', t.dataset.p===id));
-  document.querySelectorAll('.pane').forEach(p=>p.classList.toggle('on', p.id===id));
-}
-document.querySelectorAll('.nav button').forEach(t=>t.onclick=()=>showTab(t.dataset.p));
-async function openSettings(tab){
-  CFG = await api('/api/config'); writeForm(); await refreshModels(); fillModelSelects();
-  $('#settings').classList.add('on'); showTab(tab || 'p-stt'); loadSys();
+function pickTier(id){ setup({mode:'local', tier:id}, `Qualidade "${tierInfo(id).name}" escolhida. Os arquivos são baixados sozinhos.`); }
+function saveOnline(){ setup({mode:'online', key:$('#s-groq').value}, 'Pronto! Usando o serviço online.'); }
+function pickStyle(id){ const s=STYLES.find(x=>x.id===id); setCfg({sub_font:s.font, sub_color:s.color, sub_highlight:s.hl, sub_uppercase:s.upper, subtitles:true}); }
+function pickPos(i){ setCfg({sub_position:POSITIONS[i][0]}); }
+function pickSize(i){ setCfg({sub_size:SIZES[i][1]}); }
+function pickQuality(i){ setCfg({quality:['1080','720'][i]}); }
+async function openSettings(){
+  $('#settings').classList.add('on'); renderSettings(); renderModels(); loadSys();
 }
 function closeSettings(){ $('#settings').classList.remove('on'); }
-async function saveSettings(){
-  const c = readForm();
-  if (c.min_len >= c.max_len) return toast('A duração mínima deve ser menor que a máxima.');
-  try { CFG = c; await saveCfg(); closeSettings(); toast('Ajustes salvos'); await refresh(); }
-  catch(e){ toast(e.message); }
-}
-function modelRow(kind, m, dl){
-  let right;
-  if (dl && !dl.done) { const p = dl.total? dl.downloaded/dl.total*100 : 0; right = `<div style="width:150px"><div class="bar"><div style="width:${p}%"></div></div><div class="hint">${p.toFixed(0)}% de ${sizeTxt(m.size_mb)}</div></div>`; }
-  else if (m.installed) right = `<span class="ok">✔ baixado</span> <button class="small ghost danger" onclick="delModel('${kind}','${esc(m.file)}')">Remover</button>`;
-  else right = `${dl&&dl.error?`<span class="hint" style="color:var(--bad);margin:0">${esc(dl.error)}</span>`:''}<button class="small" onclick="dlModel('${kind}','${esc(m.id)}')">⬇ Baixar</button>`;
-  return `<div class="model"><div class="grow"><div class="n">${esc(m.name)} <span class="hint">· ${sizeTxt(m.size_mb)}</span></div><div class="d">${esc(m.desc)}</div></div>${right}</div>`;
-}
-async function refreshModels(){
-  MODELS = await api('/api/models');
+function renderModels(){
+  if (!MODELS) return;
   const d = MODELS.downloads || {};
-  $('#m-whisper').innerHTML = MODELS.whisper.map(m=>modelRow('whisper', m, d['whisper/'+m.file])).join('');
-  $('#m-llm').innerHTML = MODELS.llm.map(m=>modelRow('llm', m, d['llm/'+m.file])).join('');
+  const rows = [...MODELS.whisper.map(m=>['whisper',m]), ...MODELS.llm.map(m=>['llm',m])].map(([k,m])=>{
+    const dl = d[k+'/'+m.file];
+    let right = m.installed ? `<span style="color:var(--ok)">✔ no computador</span> <button class="small ghost danger" onclick="delModel('${k}','${esc(m.file)}')">Remover</button>`
+      : dl && !dl.done ? `<span class="muted">${dl.total?Math.round(dl.downloaded/dl.total*100):0}%</span>`
+      : `<button class="small" onclick="dlModel('${k}','${esc(m.id)}')">Baixar</button>`;
+    return `<div class="model"><div class="grow">${esc(m.name)} <span class="hint">· ${gb(m.size_mb)}</span></div>${right}</div>`;
+  });
+  $('#a-models').innerHTML = rows.join('');
 }
-async function dlModel(kind, id){ await startDownload(kind, id); await refreshModels(); poll(); }
+async function dlModel(kind, id){ try { await api('/api/models/download',{method:'POST',body:{kind,id}}); } catch(e){ toast(e.message); } await refreshModels(); poll(); }
 async function customDownload(){ try { await api('/api/models/download',{method:'POST',body:{kind:$('#custom-kind').value,url:$('#custom-url').value}}); $('#custom-url').value=''; await refreshModels(); poll(); } catch(e){ toast(e.message); } }
-async function delModel(kind, file){ if(!confirm('Remover '+file+'?')) return; try { await api('/api/models/delete',{method:'POST',body:{kind,file}}); await refreshModels(); fillModelSelects(); renderStatus(); } catch(e){ toast(e.message); } }
+async function delModel(kind, file){ if(!confirm('Remover '+file+' do computador?')) return; try { await api('/api/models/delete',{method:'POST',body:{kind,file}}); await refreshModels(); } catch(e){ toast(e.message); } }
 async function testLlm(){
-  $('#llm-test').textContent='Testando… (a IA local pode levar alguns segundos para carregar)';
-  try { const r = await api('/api/test-llm',{method:'POST',body:readForm()}); $('#llm-test').textContent='✔ Funcionando: '+r.reply.slice(0,100); }
-  catch(e){ $('#llm-test').textContent='✖ '+e.message; }
+  $('#adv-out').textContent='Testando…';
+  try { const r = await api('/api/test-llm',{method:'POST',body:CFG}); $('#adv-out').textContent='✔ A IA respondeu: '+r.reply.slice(0,80); }
+  catch(e){ $('#adv-out').textContent='✖ '+e.message; }
 }
+async function updateYtdlp(){ $('#adv-out').textContent='Atualizando…'; try { const r=await api('/api/ytdlp-update',{method:'POST'}); $('#adv-out').textContent='✔ '+r.output; loadSys(); } catch(e){ $('#adv-out').textContent='✖ '+e.message; } }
 async function loadSys(){
   try { const s = await api('/api/system');
-    $('#sysinfo').innerHTML = [['Versão',s.version],['ffmpeg',s.ffmpeg],['yt-dlp',s.ytdlp],['whisper.cpp',s.whisper],['llama.cpp',s.llama],['CPU com AVX2',s.avx2?'sim':'não (modo compatível)'],['Núcleos',s.threads],['Pasta de dados',s.data_dir]]
+    $('#sysinfo').innerHTML = [['Versão',s.version],['Memória',MACHINE?.ram_gb?MACHINE.ram_gb+' GB':'?'],['ffmpeg',s.ffmpeg],['yt-dlp',s.ytdlp],['whisper.cpp',s.whisper],['llama.cpp',s.llama],['AVX2',s.avx2?'sim':'não'],['Pasta de dados',s.data_dir]]
       .map(([a,b])=>`<div>${a}</div><div>${esc(b)}</div>`).join('');
-  } catch(e){ $('#sysinfo').textContent = e.message; }
+  } catch(e){}
 }
-async function updateYtdlp(){ $('#yt-out').textContent='Atualizando…'; try { const r=await api('/api/ytdlp-update',{method:'POST'}); $('#yt-out').textContent=r.output.trim().split('\n').pop(); loadSys(); } catch(e){ $('#yt-out').textContent=e.message; } }
-async function quit(){ if(!confirm('Fechar o ClipForge? Trabalhos em andamento serão interrompidos.')) return; await api('/api/shutdown',{method:'POST'}).catch(()=>{}); document.body.innerHTML='<main><div class="card empty">O ClipForge foi fechado. Pode fechar esta aba.</div></main>'; }
+async function quit(){ if(!confirm('Fechar o ClipForge? Vídeos em andamento serão interrompidos.')) return; await api('/api/shutdown',{method:'POST'}).catch(()=>{}); document.body.innerHTML='<main><div class="card empty"><div class="big">👋</div>O ClipForge foi fechado. Pode fechar esta aba.</div></main>'; }
 
-// ---------- Atualização periódica ----------
+// ---------- Atualização ----------
+function renderAll(){ if (!CFG) return; renderQuick(); renderStatus(); renderWelcome(); renderSettings(); }
+async function refreshModels(){ MODELS = await api('/api/models'); renderModels(); }
 let pollTimer = null, lastDl = '';
 async function poll(){
   clearTimeout(pollTimer);
   try { STATE = await api('/api/state'); renderProjects(); } catch(e){}
-  // Quando um download termina, recarrega a lista de modelos
   const dlSig = JSON.stringify(Object.values(STATE.downloads||{}).map(d=>[d.file,d.done,d.error]));
-  if (dlSig !== lastDl){ lastDl = dlSig; await refreshModels().catch(()=>{}); if ($('#settings').classList.contains('on')) fillModelSelects(); }
-  else if ($('#settings').classList.contains('on') && Object.values(STATE.downloads||{}).some(d=>!d.done)) await refreshModels().catch(()=>{});
+  if (dlSig !== lastDl){ lastDl = dlSig; await refreshModels().catch(()=>{}); }
   renderStatus();
-  const busy = STATE.projects.some(p=>p.status==='running'||p.status==='queued') || Object.values(STATE.downloads||{}).some(d=>!d.done);
+  if ($('#settings').classList.contains('on') && activeDownloads().length) renderModels();
+  const busy = STATE.projects.some(p=>p.status==='running'||p.status==='queued') || activeDownloads().length;
   pollTimer = setTimeout(poll, busy ? 1200 : 4000);
 }
-async function refresh(){ CFG = await api('/api/config'); await refreshModels(); renderQuick(); renderStatus(); renderProjects(); }
-
+async function refresh(){
+  [CFG, MACHINE] = await Promise.all([api('/api/config'), MACHINE ? Promise.resolve(MACHINE) : api('/api/machine')]);
+  await refreshModels(); renderAll(); renderProjects();
+}
 (async () => { await refresh(); poll(); })();
 </script>
 </body>

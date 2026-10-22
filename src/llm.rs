@@ -197,13 +197,26 @@ async fn start_local(cfg: &Config, cancel: &CancellationToken) -> Result<Llm> {
             cfg.llm_local_model
         );
     }
+    // Contexto automático conforme a memória do computador
+    let ctx_wanted = if cfg.llm_ctx > 0 {
+        cfg.llm_ctx.max(2048)
+    } else {
+        let ram = paths::total_ram_gb();
+        if ram >= 15.0 {
+            16384
+        } else if ram >= 7.5 || ram <= 0.0 {
+            8192
+        } else {
+            4096
+        }
+    };
     let port = free_port().await?;
     let mut c = crate::proc::command(paths::llama_server());
     c.arg("-m").arg(&model);
     c.args(["--host", "127.0.0.1", "--port", &port.to_string()]);
     c.args([
         "-c",
-        &cfg.llm_ctx.max(2048).to_string(),
+        &ctx_wanted.to_string(),
         "-t",
         &cfg.threads().to_string(),
         "-np",
@@ -240,7 +253,7 @@ async fn start_local(cfg: &Config, cancel: &CancellationToken) -> Result<Llm> {
     }
     // O llama-server pode reduzir o contexto para caber na memória: usa o valor real
     let root = format!("http://127.0.0.1:{port}");
-    let mut ctx = cfg.llm_ctx.max(2048);
+    let mut ctx = ctx_wanted;
     if let Ok(r) = client.get(format!("{root}/props")).send().await
         && let Ok(v) = r.json::<serde_json::Value>().await
         && let Some(n) = v["default_generation_settings"]["n_ctx"]

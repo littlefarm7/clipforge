@@ -5,6 +5,7 @@
 
 mod config;
 mod face;
+mod friendly;
 mod highlights;
 mod llm;
 mod models;
@@ -337,40 +338,7 @@ async fn api_model_download(State(app): State<App>, Json(req): Json<DownloadReq>
         }
         (url, file)
     };
-    let key = format!("{kind}/{file}");
-    {
-        let mut d = app.downloads.lock().unwrap();
-        if d.get(&key).is_some_and(|s| !s.done && s.error.is_none()) {
-            return Err(err("este download já está em andamento"));
-        }
-        d.insert(
-            key.clone(),
-            models::DownloadState {
-                kind: kind.into(),
-                file: file.clone(),
-                ..Default::default()
-            },
-        );
-    }
-    let dest = models::dir_for(kind).join(&file);
-    let app2 = app.clone();
-    tokio::spawn(async move {
-        let k = key.clone();
-        let res = models::download(&url, &dest, |got, total| {
-            if let Some(s) = app2.downloads.lock().unwrap().get_mut(&k) {
-                s.downloaded = got;
-                s.total = total;
-            }
-        })
-        .await;
-        let mut d = app2.downloads.lock().unwrap();
-        if let Some(s) = d.get_mut(&key) {
-            s.done = true;
-            if let Err(e) = res {
-                s.error = Some(format!("{e:#}"));
-            }
-        }
-    });
+    models::start_download(&app, kind, url, file);
     Ok(Json(json!({"ok": true})))
 }
 
@@ -429,17 +397,83 @@ async fn api_system() -> Json<Value> {
     }))
 }
 
-async fn api_ytdlp_update() -> ApiResult {
-    let bin = paths::user_bin_dir().join(paths::exe("yt-dlp"));
-    if !bin.is_file() {
-        return Err(err(
-            "yt-dlp não está na pasta do usuário; não é possível atualizar",
-        ));
+/// Informações para a tela de primeiros passos: memória do PC e níveis de qualidade.
+async fn api_machine() -> Json<Value> {
+    let ram = paths::total_ram_gb();
+    Json(json!({
+        "ram_gb": (ram * 10.0).round() / 10.0,
+        "recommended": models::recommended_tier(ram),
+        "tiers": models::tiers(),
+    }))
+}
+
+#[derive(Deserialize)]
+struct SetupReq {
+    /// "local", "online" ou "none"
+    mode: String,
+    tier: Option<String>,
+    key: Option<String>,
+}
+
+/// Configura tudo de uma vez e começa a baixar o que faltar.
+async fn api_setup(State(app): State<App>, Json(req): Json<SetupReq>) -> ApiResult {
+    let mut cfg = app.config();
+    let tiers = models::tiers();
+    let rec = models::recommended_tier(paths::total_ram_gb());
+    let tier_id = req.tier.as_deref().unwrap_or(rec);
+    let tier = tiers
+        .iter()
+        .find(|t| t.id == tier_id)
+        .ok_or_else(|| err("nível de qualidade desconhecido"))?;
+    let mut needed: Vec<(&str, &str)> = Vec::new();
+    match req.mode.as_str() {
+        "local" => {
+            cfg.stt_provider = "local".into();
+            cfg.whisper_model = tier.whisper_file.into();
+            cfg.llm_provider = "local".into();
+            cfg.llm_local_model = tier.llm_file.into();
+            cfg.tier = tier.id.into();
+            needed.push(("whisper", tier.whisper_file));
+            needed.push(("llm", tier.llm_file));
+        }
+        "online" => {
+            let key = req.key.unwrap_or_default().trim().to_string();
+            if key.len() < 10 {
+                return Err(err("Cole a chave completa da Groq."));
+            }
+            cfg.stt_provider = "api".into();
+            cfg.stt_api_base = "https://api.groq.com/openai/v1".into();
+            cfg.stt_api_model = "whisper-large-v3-turbo".into();
+            cfg.stt_api_key = key.clone();
+            cfg.llm_provider = "api".into();
+            cfg.llm_api_base = "https://api.groq.com/openai/v1".into();
+            cfg.llm_api_model = "llama-3.3-70b-versatile".into();
+            cfg.llm_api_key = key;
+        }
+        "none" => {
+            cfg.stt_provider = "local".into();
+            cfg.whisper_model = tier.whisper_file.into();
+            cfg.llm_provider = "none".into();
+            cfg.tier = tier.id.into();
+            needed.push(("whisper", tier.whisper_file));
+        }
+        _ => return Err(err("modo desconhecido")),
     }
-    let mut c = proc::command(&bin);
-    c.arg("-U");
-    let out = proc::output(c).await?;
-    Ok(Json(json!({"output": String::from_utf8_lossy(&out)})))
+    cfg.save()?;
+    *app.config.write().unwrap() = cfg;
+    for (kind, file) in needed {
+        if !models::dir_for(kind).join(file).is_file()
+            && let Some(m) = models::by_file(kind, file)
+        {
+            models::start_download(&app, kind, m.url.to_string(), m.file.to_string());
+        }
+    }
+    Ok(Json(json!({"ok": true, "tier": tier.id})))
+}
+
+async fn api_ytdlp_update() -> ApiResult {
+    let out = pipeline::update_ytdlp().await?;
+    Ok(Json(json!({ "output": out })))
 }
 
 async fn api_open_folder(AxPath(id): AxPath<String>) -> ApiResult {
@@ -451,6 +485,21 @@ async fn api_open_folder(AxPath(id): AxPath<String>) -> ApiResult {
 async fn api_shutdown(State(app): State<App>) -> Json<Value> {
     app.shutdown.notify_one();
     Json(json!({"ok": true}))
+}
+
+/// Fontes embutidas, usadas pela interface (títulos e prévia das legendas).
+async fn font(AxPath(name): AxPath<String>) -> Response {
+    match FONTS.iter().find(|(n, _)| *n == name) {
+        Some((_, bytes)) => (
+            [
+                (header::CONTENT_TYPE, "font/ttf"),
+                (header::CACHE_CONTROL, "max-age=86400"),
+            ],
+            *bytes,
+        )
+            .into_response(),
+        None => StatusCode::NOT_FOUND.into_response(),
+    }
 }
 
 async fn index() -> impl IntoResponse {
@@ -526,11 +575,14 @@ async fn main() -> anyhow::Result<()> {
     let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
     let app = App::new(tx);
     tokio::spawn(pipeline::worker(app.clone(), rx));
+    // Mantém o baixador de vídeos em dia, sem a pessoa precisar fazer nada
+    tokio::spawn(pipeline::auto_update_ytdlp());
 
     let files = tower_http::services::ServeDir::new(paths::projects_dir());
     let router = Router::new()
         .route("/", get(index))
         .route("/api/ping", get(|| async { "clipforge" }))
+        .route("/fonts/{name}", get(font))
         .route("/api/state", get(api_state))
         .route("/api/projects", post(api_new_project))
         .route("/api/upload", post(api_upload))
@@ -549,6 +601,8 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/models/download", post(api_model_download))
         .route("/api/models/delete", post(api_model_delete))
         .route("/api/system", get(api_system))
+        .route("/api/machine", get(api_machine))
+        .route("/api/setup", post(api_setup))
         .route("/api/ytdlp-update", post(api_ytdlp_update))
         .route("/api/shutdown", post(api_shutdown))
         .nest_service("/files", files)

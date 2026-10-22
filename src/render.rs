@@ -200,29 +200,21 @@ pub async fn render(
                         eprintln!("rastreamento de rosto falhou: {e:#}");
                         vec![]
                     });
-                let path = face::camera_path(&dets, w as f64 / sw as f64);
+                let path = face::camera_path(&dets, w as f64 / sw as f64, dur);
                 let max_x = (sw - w) as f64;
                 let to_x = |c: f64| (c * sw as f64 - w as f64 / 2.0).clamp(0.0, max_x).round();
                 let x0 = path
                     .first()
                     .map(|c| to_x(*c))
                     .unwrap_or((max_x / 2.0).round());
+                // Uma posição por quadro: movimento contínuo, sem degraus
                 let mut cmds = String::new();
-                if path.len() > 1 {
-                    // Interpola a cada 0,1 s para um movimento suave
-                    let total = (dur / 0.1).ceil() as usize;
-                    let mut prev = -1.0;
-                    for k in 0..=total {
-                        let t = k as f64 * 0.1;
-                        let fi = t / face::STEP;
-                        let i = (fi.floor() as usize).min(path.len() - 1);
-                        let j = (i + 1).min(path.len() - 1);
-                        let f = fi - fi.floor();
-                        let x = to_x(path[i] * (1.0 - f) + path[j] * f);
-                        if x != prev {
-                            let _ = writeln!(cmds, "{t:.2} crop@cf x {x};");
-                            prev = x;
-                        }
+                let mut prev = x0;
+                for (k, c) in path.iter().enumerate() {
+                    let x = to_x(*c);
+                    if x != prev {
+                        let _ = writeln!(cmds, "{:.4} crop@cf x {x};", k as f64 / face::FPS);
+                        prev = x;
                     }
                 }
                 let cmd_name = format!("{}.cmd", job.name);

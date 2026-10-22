@@ -20,6 +20,7 @@ pub struct Config {
     pub llm_api_key: String,
     pub llm_api_model: String,
     pub llm_local_model: String,
+    /// Memória de contexto da IA local; 0 = automático (conforme a RAM)
     pub llm_ctx: u32,
     pub extra_prompt: String,
 
@@ -45,6 +46,8 @@ pub struct Config {
     pub sub_uppercase: bool,
     pub words_per_line: u32,
 
+    /// Nível de qualidade escolhido no modo local ("fast", "balanced", "best")
+    pub tier: String,
     /// 0 = automático
     pub threads: u32,
     /// Argumentos extras do yt-dlp (ex.: --cookies-from-browser firefox)
@@ -65,7 +68,7 @@ impl Default for Config {
             llm_api_key: String::new(),
             llm_api_model: "llama-3.3-70b-versatile".into(),
             llm_local_model: "qwen2.5-3b-instruct-q4_k_m.gguf".into(),
-            llm_ctx: 8192,
+            llm_ctx: 0,
             extra_prompt: String::new(),
             max_clips: 6,
             min_len: 30.0,
@@ -81,6 +84,7 @@ impl Default for Config {
             sub_position: "bottom".into(),
             sub_uppercase: true,
             words_per_line: 3,
+            tier: String::new(),
             threads: 0,
             ytdlp_args: String::new(),
         }

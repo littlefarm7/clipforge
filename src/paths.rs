@@ -165,3 +165,77 @@ pub fn init() {
         }
     }
 }
+
+/// Memória RAM total do computador, em GB (0 se não for possível saber).
+pub fn total_ram_gb() -> f64 {
+    #[cfg(target_os = "linux")]
+    {
+        std::fs::read_to_string("/proc/meminfo")
+            .ok()
+            .and_then(|s| {
+                s.lines()
+                    .find(|l| l.starts_with("MemTotal:"))?
+                    .split_whitespace()
+                    .nth(1)?
+                    .parse::<f64>()
+                    .ok()
+            })
+            .map(|kb| kb / 1024.0 / 1024.0)
+            .unwrap_or(0.0)
+    }
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("sysctl")
+            .args(["-n", "hw.memsize"])
+            .output()
+            .ok()
+            .and_then(|o| {
+                String::from_utf8_lossy(&o.stdout)
+                    .trim()
+                    .parse::<f64>()
+                    .ok()
+            })
+            .map(|b| b / 1024.0 / 1024.0 / 1024.0)
+            .unwrap_or(0.0)
+    }
+    #[cfg(windows)]
+    {
+        #[repr(C)]
+        struct MemoryStatusEx {
+            length: u32,
+            memory_load: u32,
+            total_phys: u64,
+            avail_phys: u64,
+            total_page_file: u64,
+            avail_page_file: u64,
+            total_virtual: u64,
+            avail_virtual: u64,
+            avail_extended_virtual: u64,
+        }
+        #[link(name = "kernel32")]
+        unsafe extern "system" {
+            fn GlobalMemoryStatusEx(buffer: *mut MemoryStatusEx) -> i32;
+        }
+        let mut m = MemoryStatusEx {
+            length: std::mem::size_of::<MemoryStatusEx>() as u32,
+            memory_load: 0,
+            total_phys: 0,
+            avail_phys: 0,
+            total_page_file: 0,
+            avail_page_file: 0,
+            total_virtual: 0,
+            avail_virtual: 0,
+            avail_extended_virtual: 0,
+        };
+        // SAFETY: a estrutura tem o layout esperado pela API e `length` está preenchido.
+        if unsafe { GlobalMemoryStatusEx(&mut m) } != 0 {
+            m.total_phys as f64 / 1024.0 / 1024.0 / 1024.0
+        } else {
+            0.0
+        }
+    }
+    #[cfg(not(any(target_os = "linux", target_os = "macos", windows)))]
+    {
+        0.0
+    }
+}

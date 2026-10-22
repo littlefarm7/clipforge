@@ -1,5 +1,6 @@
 //! Catálogo de modelos locais (Whisper e LLM GGUF) e gerenciador de downloads.
 
+use crate::state::App;
 use anyhow::{Context, Result, bail};
 use futures_util::StreamExt;
 use serde::Serialize;
@@ -97,6 +98,156 @@ pub fn llm_catalog() -> Vec<ModelInfo> {
             desc: "Melhor qualidade (≈8 GB de RAM). Mais lento.",
         },
     ]
+}
+
+/// Nível de qualidade do modo "No meu computador": um par de modelos (transcrição + IA).
+#[derive(Debug, Clone, Serialize)]
+pub struct Tier {
+    pub id: &'static str,
+    pub name: &'static str,
+    pub desc: &'static str,
+    pub whisper_id: &'static str,
+    pub whisper_file: &'static str,
+    pub llm_id: &'static str,
+    pub llm_file: &'static str,
+    /// Tamanho total para baixar
+    pub size_mb: u32,
+    /// Memória RAM recomendada
+    pub min_ram_gb: f64,
+}
+
+pub fn tiers() -> Vec<Tier> {
+    vec![
+        Tier {
+            id: "fast",
+            name: "Leve",
+            desc: "Funciona em qualquer computador. Cortes bons, mais rápido.",
+            whisper_id: "base",
+            whisper_file: "ggml-base.bin",
+            llm_id: "qwen2.5-1.5b",
+            llm_file: "qwen2.5-1.5b-instruct-q4_k_m.gguf",
+            size_mb: 1262,
+            min_ram_gb: 4.0,
+        },
+        Tier {
+            id: "balanced",
+            name: "Equilibrado",
+            desc: "Ótima escolha de cortes e legendas precisas.",
+            whisper_id: "small",
+            whisper_file: "ggml-small.bin",
+            llm_id: "qwen2.5-3b",
+            llm_file: "qwen2.5-3b-instruct-q4_k_m.gguf",
+            size_mb: 2566,
+            min_ram_gb: 8.0,
+        },
+        Tier {
+            id: "best",
+            name: "Máxima qualidade",
+            desc: "Os melhores cortes. Precisa de um computador potente.",
+            whisper_id: "large-v3-turbo-q5_0",
+            whisper_file: "ggml-large-v3-turbo-q5_0.bin",
+            llm_id: "qwen2.5-7b",
+            llm_file: "Qwen2.5-7B-Instruct-Q4_K_M.gguf",
+            size_mb: 5227,
+            min_ram_gb: 16.0,
+        },
+    ]
+}
+
+/// Nível indicado para a memória deste computador.
+pub fn recommended_tier(ram_gb: f64) -> &'static str {
+    // RAM desconhecida: escolhe o meio-termo
+    if ram_gb <= 0.0 {
+        "balanced"
+    } else if ram_gb >= 15.0 {
+        "best"
+    } else if ram_gb >= 7.5 {
+        "balanced"
+    } else {
+        "fast"
+    }
+}
+
+/// Procura no catálogo o modelo pelo nome do arquivo.
+pub fn by_file(kind: &str, file: &str) -> Option<ModelInfo> {
+    let cat = if kind == "whisper" {
+        whisper_catalog()
+    } else {
+        llm_catalog()
+    };
+    cat.into_iter().find(|m| m.file == file)
+}
+
+/// Começa a baixar um modelo em segundo plano (não faz nada se já estiver baixando).
+pub fn start_download(app: &App, kind: &str, url: String, file: String) {
+    let key = format!("{kind}/{file}");
+    {
+        let mut d = app.downloads.lock().unwrap();
+        if d.get(&key).is_some_and(|s| !s.done) {
+            return;
+        }
+        d.insert(
+            key.clone(),
+            DownloadState {
+                kind: kind.into(),
+                file: file.clone(),
+                ..Default::default()
+            },
+        );
+    }
+    let dest = dir_for(kind).join(&file);
+    let app2 = app.clone();
+    tokio::spawn(async move {
+        let k = key.clone();
+        let res = download(&url, &dest, |got, total| {
+            if let Some(s) = app2.downloads.lock().unwrap().get_mut(&k) {
+                s.downloaded = got;
+                s.total = total;
+            }
+        })
+        .await;
+        let mut d = app2.downloads.lock().unwrap();
+        if let Some(s) = d.get_mut(&key) {
+            s.done = true;
+            if let Err(e) = res {
+                s.error = Some(format!("{e:#}"));
+            }
+        }
+    });
+}
+
+/// Garante que o modelo está no computador: se faltar, baixa e espera, informando o progresso.
+pub async fn ensure(
+    app: &App,
+    kind: &str,
+    file: &str,
+    cancel: &tokio_util::sync::CancellationToken,
+    mut progress: impl FnMut(f32),
+) -> Result<()> {
+    if dir_for(kind).join(file).is_file() {
+        return Ok(());
+    }
+    let m =
+        by_file(kind, file).with_context(|| format!("o arquivo {file} não está no computador"))?;
+    start_download(app, kind, m.url.to_string(), m.file.to_string());
+    let key = format!("{kind}/{file}");
+    loop {
+        if cancel.is_cancelled() {
+            bail!("Cancelado");
+        }
+        let st = app.downloads.lock().unwrap().get(&key).cloned();
+        match st {
+            Some(s) if s.done => {
+                if let Some(e) = s.error {
+                    bail!("falha ao baixar {file}: {e}");
+                }
+                return Ok(());
+            }
+            Some(s) if s.total > 0 => progress(s.downloaded as f32 / s.total as f32),
+            _ => {}
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Default)]

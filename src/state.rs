@@ -41,6 +41,8 @@ pub struct Project {
     pub stage: String,
     pub progress: f32,
     pub error: Option<String>,
+    /// Mensagem técnica original do erro (mostrada em "Detalhes técnicos")
+    pub error_detail: Option<String>,
     /// Aviso que não impede o resultado (ex.: menos clipes que o pedido)
     pub notice: Option<String>,
     pub duration: f64,
