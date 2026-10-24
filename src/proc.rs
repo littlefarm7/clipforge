@@ -114,6 +114,8 @@ pub struct ProbeInfo {
     pub duration: f64,
     pub width: u32,
     pub height: u32,
+    /// Quadros por segundo do vídeo (0 se desconhecido)
+    pub fps: f64,
     pub has_video: bool,
 }
 
@@ -137,6 +139,7 @@ pub async fn probe(path: &std::path::Path) -> Result<ProbeInfo> {
         duration,
         width: 0,
         height: 0,
+        fps: 0.0,
         has_video: false,
     };
     if let Some(streams) = v["streams"].as_array() {
@@ -157,6 +160,15 @@ pub async fn probe(path: &std::path::Path) -> Result<ProbeInfo> {
                 }
                 info.width = w;
                 info.height = h;
+                info.fps = ["avg_frame_rate", "r_frame_rate"]
+                    .iter()
+                    .filter_map(|k| {
+                        let (n, d) = s[*k].as_str()?.split_once('/')?;
+                        let (n, d): (f64, f64) = (n.parse().ok()?, d.parse().ok()?);
+                        (d > 0.0 && n > 0.0).then(|| n / d)
+                    })
+                    .find(|f| *f > 1.0 && *f < 240.0)
+                    .unwrap_or(0.0);
                 info.has_video = true;
                 break;
             }

@@ -9,9 +9,6 @@ static MODEL: &[u8] = include_bytes!("../assets/seeta_fd_frontal_v1.0.bin");
 /// Intervalo entre amostras da detecção de rosto (segundos).
 pub const STEP: f64 = 0.25;
 
-/// Quadros por segundo do movimento da câmera (o mesmo do vídeo final).
-pub const FPS: f64 = 30.0;
-
 /// Retorna, para cada amostra, o centro horizontal (0..1) do rosto principal.
 pub async fn track(
     src: &Path,
@@ -79,8 +76,9 @@ pub async fn track(
 /// 3. A câmera segue o alvo por duas molas amortecidas em sequência: parte do repouso
 ///    devagar, acelera e freia devagar (curva em "S"), sem trancos nem balanço.
 ///
-/// `crop_frac` é a largura do recorte relativa à imagem; `dur` a duração do clipe.
-pub fn camera_path(dets: &[Option<f64>], crop_frac: f64, dur: f64) -> Vec<f64> {
+/// `crop_frac` é a largura do recorte relativa à imagem; `dur` a duração do clipe;
+/// `fps` os quadros por segundo do vídeo final (uma posição por quadro).
+pub fn camera_path(dets: &[Option<f64>], crop_frac: f64, dur: f64, fps: f64) -> Vec<f64> {
     if dets.is_empty() {
         return vec![];
     }
@@ -130,8 +128,8 @@ pub fn camera_path(dets: &[Option<f64>], crop_frac: f64, dur: f64) -> Vec<f64> {
     let omega = 3.2; // rapidez: ~1,6 s para completar um giro
     // O vídeo já está gravado: a câmera "olha à frente" e começa a girar junto com a mudança
     let lead = 0.6;
-    let dt = 1.0 / FPS;
-    let frames = (dur * FPS).ceil() as usize + 1;
+    let dt = 1.0 / fps;
+    let frames = (dur * fps).ceil() as usize + 1;
     let (mut aim, mut aim_vel) = (targets[0], 0.0);
     let (mut pos, mut vel) = (targets[0], 0.0);
     let mut out = Vec::with_capacity(frames);
@@ -157,13 +155,13 @@ mod tests {
         let dets: Vec<Option<f64>> = (0..40)
             .map(|i| Some(if i < 16 { 0.25 } else { 0.75 }))
             .collect();
-        let path = camera_path(&dets, 0.32, 10.0);
+        let path = camera_path(&dets, 0.32, 10.0, 30.0);
         assert!((path[0] - 0.25).abs() < 1e-9);
         assert!(
             (path[path.len() - 1] - 0.75).abs() < 0.01,
             "chega ao destino"
         );
-        let speeds: Vec<f64> = path.windows(2).map(|w| (w[1] - w[0]) * FPS).collect();
+        let speeds: Vec<f64> = path.windows(2).map(|w| (w[1] - w[0]) * 30.0).collect();
         // sem passar do alvo (sem balanço)
         assert!(path.iter().all(|&p| p <= 0.7501));
         // aceleração limitada: nada de saltos de um quadro para o outro
@@ -182,7 +180,7 @@ mod tests {
         let mut dets: Vec<Option<f64>> = vec![Some(0.5); 40];
         dets[20] = Some(0.9); // um falso positivo
         dets[21] = Some(0.9);
-        let path = camera_path(&dets, 0.32, 10.0);
+        let path = camera_path(&dets, 0.32, 10.0, 60.0);
         assert!(path.iter().all(|&p| (p - 0.5).abs() < 1e-6));
     }
 }

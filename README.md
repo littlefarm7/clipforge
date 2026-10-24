@@ -54,6 +54,8 @@ O app não tem janela própria. A interface abre no navegador em `http://127.0.0
 4. **Renderiza** cada clipe com o ffmpeg:
    - Formatos 9:16, 1:1, 4:5 ou 16:9.
    - Enquadramento: seguir o rosto, cortar no centro ou fundo desfocado.
+   - Qualidade de Shorts profissionais: baixa o original em até 4K para o recorte vertical ficar nítido,
+     mantém 60 quadros por segundo, compressão de alta qualidade e cores no padrão BT.709.
    - Legendas estilo karaokê, com a palavra falada em destaque.
 
 Nada sai do seu computador, a não ser que você escolha usar uma API.

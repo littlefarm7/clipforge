@@ -683,7 +683,7 @@ function renderSettings(){
   }).join('');
   chips($('#s-pos'), POSITIONS.map(([v,l])=>({v,html:l})), x=>x.v===CFG.sub_position, 'pickPos');
   chips($('#s-size'), SIZES.map(([l,v])=>({v,html:l})), x=>Math.abs(x.v-CFG.sub_size)<8, 'pickSize');
-  chips($('#s-quality'), [['1080','Alta (1080p)'],['720','Mais rápida (720p)']].map(([v,l])=>({v,html:l})), x=>x.v===CFG.quality, 'pickQuality');
+  chips($('#s-quality'), [['1080','Máxima nitidez (4K na origem, 60 fps)'],['720','Mais rápida']].map(([v,l])=>({v,html:l})), x=>x.v===CFG.quality, 'pickQuality');
   $('#s-lang').value = CFG.language; if (document.activeElement!==$('#s-extra')) $('#s-extra').value = CFG.extra_prompt||'';
   const adv = {'a-llm-base':'llm_api_base','a-llm-model':'llm_api_model','a-llm-key':'llm_api_key','a-stt':'stt_provider','a-stt-base':'stt_api_base','a-stt-model':'stt_api_model','a-stt-key':'stt_api_key','a-ctx':'llm_ctx','a-threads':'threads','a-min':'min_len','a-max':'max_len','a-ytdlp':'ytdlp_args'};
   for (const [id,f] of Object.entries(adv)) if (document.activeElement!==$('#'+id)) $('#'+id).value = CFG[f];

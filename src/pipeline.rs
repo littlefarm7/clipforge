@@ -249,7 +249,13 @@ async fn download_once(
 ) -> Result<PathBuf> {
     stage(app, id, "Baixando vídeo", 0.0);
     let cfg = app.config();
-    let height = if cfg.quality == "720" { 720 } else { 1080 };
+    // Para clipes verticais/quadrados o vídeo é recortado: baixar em resolução maior
+    // (até 4K) deixa o recorte nítido em vez de ampliado.
+    let height = match (cfg.quality.as_str(), cfg.aspect.as_str()) {
+        ("720", _) => 1080,
+        (_, "16:9") => 1080,
+        _ => 2160,
+    };
     let mut c = crate::proc::command(paths::ytdlp());
     c.current_dir(dir);
     c.args([
@@ -261,7 +267,10 @@ async fn download_once(
     ]);
     c.args([
         "-f",
-        &format!("bv*[height<={height}]+ba/b[height<={height}]/bv*+ba/b"),
+        // Prefere imagem SDR (HDR fica com cores lavadas depois de convertido)
+        &format!(
+            "bv*[height<={height}][dynamic_range=SDR]+ba/bv*[height<={height}]+ba/b[height<={height}]/bv*+ba/b"
+        ),
     ]);
     c.args(["--merge-output-format", "mp4", "-o", "source.%(ext)s"]);
     c.arg("--ffmpeg-location").arg(paths::ffmpeg());

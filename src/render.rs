@@ -166,6 +166,12 @@ pub async fn render(
     let cfg = job.cfg;
     let (w, h) = cfg.out_size();
     let dur = (job.end - job.start).max(0.5);
+    // Mantém a fluidez do original: 60 quadros/s quando o vídeo tiver, senão 30
+    let fps: f64 = if cfg.quality != "720" && job.info.fps >= 47.0 {
+        60.0
+    } else {
+        30.0
+    };
     let mut graph;
     let mut inputs: Vec<String> = vec![];
 
@@ -177,7 +183,7 @@ pub async fn render(
             "-t".into(),
             format!("{dur:.3}"),
             "-i".into(),
-            format!("color=c=0x111318:s={w}x{h}:r=30"),
+            format!("color=c=0x111318:s={w}x{h}:r={fps}"),
         ]);
         graph = "[1:v]setsar=1[v0]".to_string();
     } else {
@@ -188,10 +194,21 @@ pub async fn render(
         if mode == "face" && sw <= w + 8 {
             mode = "center";
         }
+        // Quanto a imagem é ampliada: acima de 10% recebe um leve realce de nitidez
+        let upscale = if mode == "blur" {
+            (w as f64 / sw0).min(h as f64 / sh0)
+        } else {
+            (w as f64 / sw0).max(h as f64 / sh0)
+        };
+        let sharpen = if upscale > 1.1 {
+            ",unsharp=5:5:0.6:5:5:0.0"
+        } else {
+            ""
+        };
         graph = match mode {
             "blur" => format!(
                 "[0:v]split=2[a][b];[a]scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},boxblur=20:2[bg];\
-[b]scale={w}:{h}:force_original_aspect_ratio=decrease[fg];[bg][fg]overlay=(W-w)/2:(H-h)/2,setsar=1[v0]"
+[b]scale={w}:{h}:force_original_aspect_ratio=decrease:flags=lanczos{sharpen}[fg];[bg][fg]overlay=(W-w)/2:(H-h)/2,setsar=1[v0]"
             ),
             "face" => {
                 let dets = face::track(job.src, job.start, dur, job.info.width, job.info.height)
@@ -200,7 +217,7 @@ pub async fn render(
                         eprintln!("rastreamento de rosto falhou: {e:#}");
                         vec![]
                     });
-                let path = face::camera_path(&dets, w as f64 / sw as f64, dur);
+                let path = face::camera_path(&dets, w as f64 / sw as f64, dur, fps);
                 let max_x = (sw - w) as f64;
                 let to_x = |c: f64| (c * sw as f64 - w as f64 / 2.0).clamp(0.0, max_x).round();
                 let x0 = path
@@ -213,22 +230,24 @@ pub async fn render(
                 for (k, c) in path.iter().enumerate() {
                     let x = to_x(*c);
                     if x != prev {
-                        let _ = writeln!(cmds, "{:.4} crop@cf x {x};", k as f64 / face::FPS);
+                        let _ = writeln!(cmds, "{:.4} crop@cf x {x};", k as f64 / fps);
                         prev = x;
                     }
                 }
                 let cmd_name = format!("{}.cmd", job.name);
                 tokio::fs::write(job.work.join(&cmd_name), &cmds).await?;
                 if cmds.is_empty() {
-                    format!("[0:v]scale={sw}:{h},crop@cf={w}:{h}:{x0}:0,setsar=1[v0]")
+                    format!(
+                        "[0:v]scale={sw}:{h}:flags=lanczos,crop@cf={w}:{h}:{x0}:0{sharpen},setsar=1[v0]"
+                    )
                 } else {
                     format!(
-                        "[0:v]scale={sw}:{h},sendcmd=f={cmd_name},crop@cf={w}:{h}:{x0}:0,setsar=1[v0]"
+                        "[0:v]scale={sw}:{h}:flags=lanczos,sendcmd=f={cmd_name},crop@cf={w}:{h}:{x0}:0{sharpen},setsar=1[v0]"
                     )
                 }
             }
             _ => format!(
-                "[0:v]scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},setsar=1[v0]"
+                "[0:v]scale={w}:{h}:force_original_aspect_ratio=increase:flags=lanczos,crop={w}:{h}{sharpen},setsar=1[v0]"
             ),
         };
     }
@@ -260,14 +279,42 @@ pub async fn render(
     .arg(job.src);
     c.args(&inputs);
     c.args(["-filter_complex", &graph, "-map", "[v]", "-map", "0:a?"]);
+    let fps_s = fps.to_string();
+    let gop = (fps * 2.0).to_string();
+    if cfg.quality == "720" {
+        // "Mais rápida": prioriza o tempo de renderização
+        c.args(["-c:v", "libx264", "-preset", "veryfast", "-crf", "21"]);
+    } else {
+        // Máxima nitidez: compressão cuidadosa, qualidade visual próxima do original
+        c.args(["-c:v", "libx264", "-preset", "medium", "-crf", "17"]);
+        c.args([
+            "-profile:v",
+            "high",
+            "-level:v",
+            "4.2",
+            "-bf",
+            "3",
+            "-aq-mode",
+            "3",
+        ]);
+    }
+    c.args(["-pix_fmt", "yuv420p", "-r", &fps_s, "-g", &gop]);
+    // Cores no padrão de vídeo HD, para não ficarem lavadas no celular
     c.args([
-        "-c:v", "libx264", "-preset", "veryfast", "-crf", "21", "-pix_fmt", "yuv420p", "-r", "30",
+        "-colorspace",
+        "bt709",
+        "-color_primaries",
+        "bt709",
+        "-color_trc",
+        "bt709",
+        "-color_range",
+        "tv",
     ]);
     c.args([
         "-c:a",
         "aac",
         "-b:a",
-        "160k",
+        "192k",
         "-ar",
         "48000",
         "-movflags",
