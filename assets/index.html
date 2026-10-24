@@ -381,6 +381,7 @@ details.adv[open] summary:before{content:"▾ ";}
       <div id="ed-vbox"><video id="ed-video" controls></video></div>
       <div>
         <label class="l" style="margin-top:0">Título para a postagem</label><input id="ed-title">
+        <label class="l">Enquadramento</label><div class="chips" id="ed-framing"></div><div class="hint" id="ed-framing-hint"></div>
         <div class="grid2">
           <div><label class="l">Começa em</label><input id="ed-start"><div class="nudge"><button onclick="nudge('ed-start',-5)">−5s</button><button onclick="nudge('ed-start',-1)">−1s</button><button onclick="nudge('ed-start',1)">+1s</button><button onclick="nudge('ed-start',5)">+5s</button></div></div>
           <div><label class="l">Termina em</label><input id="ed-end"><div class="nudge"><button onclick="nudge('ed-end',-5)">−5s</button><button onclick="nudge('ed-end',-1)">−1s</button><button onclick="nudge('ed-end',1)">+1s</button><button onclick="nudge('ed-end',5)">+5s</button></div></div>
@@ -401,7 +402,8 @@ let CFG = null, MODELS = null, MACHINE = null, STATE = {projects: [], downloads:
 
 const DURS = [['Curtos', 15, 30], ['Médios', 30, 60], ['Longos', 60, 90]];
 const ASPECTS = [['9:16','Vertical',9,16], ['1:1','Quadrado',12,12], ['16:9','Horizontal',16,9]];
-const CROPS = [['face','Seguir rosto'], ['center','Centralizar'], ['blur','Vídeo inteiro']];
+const CROPS = [['face','Automático'], ['center','Centralizar'], ['blur','Vídeo inteiro']];
+const FRAMINGS = [['auto','Automático','O ClipForge decide: segue quem fala, junta duas pessoas, divide a tela ou mostra o vídeo inteiro'], ['speaker','Seguir quem fala','Corta para a pessoa que está falando'], ['split','Tela dividida','Duas pessoas, uma em cima e outra embaixo'], ['center','Centralizar','Recorte fixo no meio da imagem'], ['fit','Vídeo inteiro','Mostra a imagem toda com fundo desfocado']];
 const STYLES = [
   {id:'classic', name:'Clássico', font:'Anton', color:'#FFFFFF', hl:'#FFE000', upper:true},
   {id:'modern', name:'Moderno', font:'Poppins', color:'#FFFFFF', hl:'#B18CFF', upper:false},
@@ -566,6 +568,7 @@ function clipHtml(p, c){
     <div class="media"><div class="pill l ${scoreClass(c.score)}" title="Chance de viralizar">🔥 ${c.score}</div><div class="pill r">${(c.end-c.start).toFixed(0)}s</div>${media}</div>
     <div class="ci">
       <div class="t">${esc(c.title)}</div>
+      ${c.framing_desc && c.status==='done'?`<div class="r" title="Enquadramento escolhido para este clipe">🎥 ${esc(c.framing_desc)}</div>`:''}
       ${c.reason?`<div class="r">${esc(c.reason)}</div>`:''}
       <div class="acts">
         ${c.status==='done'?`<a class="btn small primary" style="background:var(--grad);border:none;color:#fff" href="${base}.mp4?v=${c.rev}" download="${esc(fileName(c))}.mp4">⬇ Baixar</a>`:''}
@@ -626,7 +629,7 @@ function renderProjects(){
         (active?'':`<button class="small ghost" onclick="act('${p.id}','retranscribe')" title="Ouve o vídeo de novo do zero">🎙 Ouvir de novo</button>`) +
         `<button class="small ghost danger" onclick="act('${p.id}','delete')">🗑 Apagar</button>`;
     }
-    const sig = JSON.stringify(p.clips.map(c=>[c.status,c.rev,c.title,c.start,c.end,c.status==='rendering'?Math.round(c.progress*20):0])) + aspectClass();
+    const sig = JSON.stringify(p.clips.map(c=>[c.status,c.rev,c.title,c.start,c.end,c.framing_desc,c.status==='rendering'?Math.round(c.progress*20):0])) + aspectClass();
     const box = el.querySelector('.clips');
     if (box._s !== sig){
       box._s = sig;
@@ -651,6 +654,7 @@ function openEditor(id, idx){
   if (p.status==='running'||p.status==='queued') return toast('Espere este vídeo terminar para ajustar os clipes.');
   EDIT = {id, idx};
   $('#ed-title').value = c.title; $('#ed-start').value = fmt(c.start); $('#ed-end').value = fmt(c.end);
+  EDIT.framing = c.framing || 'auto'; renderFraming(c);
   $('#ed-text').textContent = c.text || '';
   const v = $('#ed-video'), has = c.status==='done';
   v.src = has ? `/files/${id}/${c.name}.mp4?v=${c.rev}` : '';
@@ -661,8 +665,14 @@ function closeEditor(){ $('#editor').classList.remove('on'); $('#ed-video').paus
 function nudge(id, d){ const el=$('#'+id); el.value = fmt(Math.max(0, parseT(el.value)+d)); edLen(); }
 function edLen(){ const d = parseT($('#ed-end').value)-parseT($('#ed-start').value); $('#ed-len').textContent = isFinite(d) ? `Duração: ${d.toFixed(1).replace('.',',')} segundos` : ''; }
 ['ed-start','ed-end'].forEach(i=>$('#'+i).addEventListener('input', edLen));
+function renderFraming(c){
+  chips($('#ed-framing'), FRAMINGS.map(([v,l])=>({v,html:l})), x=>x.v===EDIT.framing, 'pickFraming');
+  const f = FRAMINGS.find(x=>x[0]===EDIT.framing);
+  $('#ed-framing-hint').textContent = (f?f[2]:'') + (c && c.framing_desc && EDIT.framing==='auto' ? ` · Escolhido neste clipe: ${c.framing_desc}` : '');
+}
+function pickFraming(i){ EDIT.framing = FRAMINGS[i][0]; const [,c]=findClip(EDIT.id, EDIT.idx); renderFraming(c); }
 async function saveEdit(){
-  try { await api(`/api/projects/${EDIT.id}/clips/${EDIT.idx}/render`, {method:'POST', body:{start:parseT($('#ed-start').value), end:parseT($('#ed-end').value), title:$('#ed-title').value}}); closeEditor(); toast('Criando o clipe de novo…'); poll(); }
+  try { await api(`/api/projects/${EDIT.id}/clips/${EDIT.idx}/render`, {method:'POST', body:{start:parseT($('#ed-start').value), end:parseT($('#ed-end').value), title:$('#ed-title').value, framing:EDIT.framing}}); closeEditor(); toast('Criando o clipe de novo…'); poll(); }
   catch(e){ toast(e.message); }
 }
 

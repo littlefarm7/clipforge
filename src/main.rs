@@ -201,6 +201,8 @@ struct ClipEdit {
     start: f64,
     end: f64,
     title: Option<String>,
+    /// "auto", "speaker", "split", "center" ou "fit"
+    framing: Option<String>,
 }
 
 async fn api_clip_render(
@@ -227,6 +229,11 @@ async fn api_clip_render(
             c.end = end;
             if let Some(t) = &req.title {
                 c.title = t.trim().to_string();
+            }
+            if let Some(f) = &req.framing
+                && ["auto", "speaker", "split", "center", "fit"].contains(&f.as_str())
+            {
+                c.framing = f.clone();
             }
             c.status = "pending".into();
         }
@@ -562,8 +569,43 @@ async fn existing_instance() -> Option<u16> {
     (r.text().await.ok()? == "clipforge").then_some(port)
 }
 
+/// Diagnóstico: `clipforge --diagnostico-enquadramento VIDEO INICIO DURACAO [modo]`
+/// mostra, em JSON, o enquadramento escolhido e o alvo da câmera a cada 0,1 s.
+async fn framing_diagnostics(args: &[String]) -> anyhow::Result<()> {
+    let video = std::path::PathBuf::from(&args[0]);
+    let start: f64 = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(0.0);
+    let dur: f64 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(30.0);
+    let choice = args.get(3).map(String::as_str).unwrap_or("auto");
+    let info = proc::probe(&video).await?;
+    let a = face::analyze(&video, start, dur, info.width, info.height).await?;
+    let crop_frac = (info.height as f64 * 9.0 / 16.0) / info.width.max(1) as f64;
+    let p = face::plan(&a, crop_frac, choice);
+    println!(
+        "{}",
+        json!({
+            "desc": p.desc,
+            "layout": format!("{:?}", p.layout),
+            "tracks": a.tracks,
+            "hard_cuts": p.hard_cuts,
+            "split_parts": p.split_parts,
+            "speakers": p.speakers.iter().map(|s| s.map(|t| t.to_string()).unwrap_or("-".into())).collect::<String>(),
+            "targets": p.targets.iter().map(|x| (x * 1000.0).round() / 1000.0).collect::<Vec<_>>(),
+            "frames": a.frames.iter().map(|f| json!({
+                "voice": (f.voice * 1000.0).round() / 1000.0,
+                "cut": f.cut,
+                "faces": f.faces.iter().map(|s| json!([s.track, (s.cx * 1000.0).round() / 1000.0, (s.mouth * 100.0).round() / 100.0])).collect::<Vec<_>>(),
+            })).collect::<Vec<_>>(),
+        })
+    );
+    Ok(())
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    let args: Vec<String> = std::env::args().collect();
+    if args.get(1).map(String::as_str) == Some("--diagnostico-enquadramento") && args.len() >= 3 {
+        return framing_diagnostics(&args[2..]).await;
+    }
     paths::init();
     if let Some(port) = existing_instance().await {
         let url = format!("http://127.0.0.1:{port}/");

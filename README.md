@@ -53,7 +53,14 @@ O app não tem janela própria. A interface abre no navegador em `http://127.0.0
    - Sem IA: uma heurística simples, sem modelo.
 4. **Renderiza** cada clipe com o ffmpeg:
    - Formatos 9:16, 1:1, 4:5 ou 16:9.
-   - Enquadramento: seguir o rosto, cortar no centro ou fundo desfocado.
+   - Enquadramento automático e pensado para cada clipe:
+     - descobre quem está falando (movimento da boca com a cabeça estabilizada + voz);
+     - corta para quem fala em podcasts de plano aberto;
+     - enquadra duas pessoas juntas quando cabem no quadro;
+     - usa tela dividida nos trechos de conversa rápida;
+     - respeita os cortes de câmera do vídeo original;
+     - mostra o vídeo inteiro quando não há rostos.
+     Dá para trocar o enquadramento de cada clipe em ✎ Ajustar.
    - Qualidade de Shorts profissionais: baixa o original em até 4K para o recorte vertical ficar nítido,
      mantém 60 quadros por segundo, compressão de alta qualidade e cores no padrão BT.709.
    - Legendas estilo karaokê, com a palavra falada em destaque.

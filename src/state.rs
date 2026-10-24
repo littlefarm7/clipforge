@@ -27,6 +27,10 @@ pub struct Clip {
     pub error: Option<String>,
     /// Incrementa a cada renderização (evita cache do navegador)
     pub rev: u32,
+    /// Enquadramento pedido pelo usuário para este clipe ("auto" ou vazio = automático)
+    pub framing: String,
+    /// Enquadramento usado na última renderização (para mostrar na tela)
+    pub framing_desc: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

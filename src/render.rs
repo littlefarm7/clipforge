@@ -42,11 +42,23 @@ fn ass_escape(s: &str) -> String {
 }
 
 /// Gera legendas estilo "karaokê": grupos curtos com a palavra atual destacada.
-pub fn build_ass(cfg: &Config, words: &[Word], start: f64, end: f64, w: u32, h: u32) -> String {
+/// `position` substitui a posição configurada (a tela dividida usa o meio, na emenda).
+/// Nos trechos de `split_parts` (segundos do clipe) as legendas também vão para o meio.
+#[allow(clippy::too_many_arguments)]
+pub fn build_ass(
+    cfg: &Config,
+    words: &[Word],
+    start: f64,
+    end: f64,
+    w: u32,
+    h: u32,
+    position: Option<&str>,
+    split_parts: &[(f64, f64)],
+) -> String {
     let scale = w.min(h) as f64 / 1080.0;
     let size = (cfg.sub_size as f64 * scale).round();
     let vertical = h > w;
-    let (align, margin_v) = match cfg.sub_position.as_str() {
+    let (align, margin_v) = match position.unwrap_or(cfg.sub_position.as_str()) {
         "middle" => (5, 0.0),
         "top" => (8, h as f64 * 0.12),
         _ => (2, h as f64 * if vertical { 0.20 } else { 0.10 }),
@@ -129,9 +141,15 @@ Style: Default,{font},{size},{primary},&H000000FF&,&H00000000&,&H96000000&,{bold
                 })
                 .collect::<Vec<_>>()
                 .join(" ");
+            // Durante a tela dividida, a legenda fica no meio (na emenda das duas imagens)
+            let mid = if split_parts.iter().any(|(a, b)| t0 >= *a && t0 < *b) {
+                "{\\an5}"
+            } else {
+                ""
+            };
             let _ = writeln!(
                 s,
-                "Dialogue: 0,{},{},Default,,0,0,0,,{}",
+                "Dialogue: 0,{},{},Default,,0,0,0,,{mid}{}",
                 ass_time(t0),
                 ass_time(t1),
                 text
@@ -156,13 +174,61 @@ pub struct RenderJob<'a> {
     pub name: &'a str,
     pub start: f64,
     pub end: f64,
+    /// Enquadramento escolhido para o clipe: "auto", "speaker", "split", "center" ou "fit"
+    pub framing: &'a str,
 }
 
+/// Filtros da tela dividida: duas metades empilhadas, cada uma aproximada no rosto de
+/// uma pessoa (o rosto ocupa cerca de um terço da largura). `input` é o rótulo de
+/// entrada e `out` o de saída.
+fn split_chain(
+    input: &str,
+    out: &str,
+    top: face::Spot,
+    bottom: face::Spot,
+    src: (f64, f64),
+    w: u32,
+    h: u32,
+) -> String {
+    let (sw0, sh0) = src;
+    let ph = (h / 4) * 2;
+    let even = |v: f64| ((v / 2.0).round() as u32).max(1) * 2;
+    let panel = |p: face::Spot| {
+        // Largura do recorte: rosto ≈ 32% da largura do painel, sem passar da imagem
+        let mut cw = (p.w * sw0 / 0.32).max(w as f64 * 0.5);
+        let mut ch = cw * ph as f64 / w as f64;
+        if ch > sh0 {
+            ch = sh0;
+            cw = ch * w as f64 / ph as f64;
+        }
+        if cw > sw0 {
+            cw = sw0;
+            ch = cw * ph as f64 / w as f64;
+        }
+        let (cw, ch) = (even(cw).min(even(sw0) - 2), even(ch).min(even(sh0) - 2));
+        // Rosto um pouco acima do centro do painel
+        let x = ((p.x * sw0 - cw as f64 / 2.0).clamp(0.0, sw0 - cw as f64) as u32 / 2) * 2;
+        let y = ((p.y * sh0 - ch as f64 * 0.42).clamp(0.0, sh0 - ch as f64) as u32 / 2) * 2;
+        let sharp = if w as f64 / cw as f64 > 1.1 {
+            ",unsharp=5:5:0.6:5:5:0.0"
+        } else {
+            ""
+        };
+        format!("crop={cw}:{ch}:{x}:{y},scale={w}:{ph}:flags=lanczos{sharp}")
+    };
+    format!(
+        "[{input}]split=2[sa][sb];[sa]{}[st];[sb]{}[su];[st][su]vstack,scale={w}:{h},setsar=1[{out}]",
+        panel(top),
+        panel(bottom)
+    )
+}
+
+/// Renderiza o clipe e devolve a descrição do enquadramento usado.
 pub async fn render(
     job: RenderJob<'_>,
     cancel: &CancellationToken,
     mut progress: impl FnMut(f32),
-) -> Result<()> {
+) -> Result<String> {
     let cfg = job.cfg;
     let (w, h) = cfg.out_size();
     let dur = (job.end - job.start).max(0.5);
@@ -174,6 +240,9 @@ pub async fn render(
     };
     let mut graph;
     let mut inputs: Vec<String> = vec![];
+    let mut framing_desc = String::from("Só áudio");
+    let mut sub_position: Option<&str> = None;
+    let mut split_parts: Vec<(f64, f64)> = Vec::new();
 
     if !job.info.has_video {
         // Só áudio (podcast): fundo escuro + legendas
@@ -205,26 +274,49 @@ pub async fn render(
         } else {
             ""
         };
-        graph = match mode {
-            "blur" => format!(
+        // Escolha do enquadramento: a do clipe (se houver) ou a geral
+        let choice = match job.framing {
+            "" | "auto" => match mode {
+                "center" => "center",
+                "blur" => "fit",
+                _ => "auto",
+            },
+            c => c,
+        };
+        let crop_frac = w as f64 / sw as f64;
+        let plan = if sw <= w + 8 && choice != "fit" {
+            // Vídeo original já vertical: não há o que recortar dos lados
+            face::plan(&face::Analysis::default(), crop_frac, "center")
+        } else if choice == "center" || choice == "fit" {
+            face::plan(&face::Analysis::default(), crop_frac, choice)
+        } else {
+            match face::analyze(job.src, job.start, dur, job.info.width, job.info.height).await {
+                Ok(a) => face::plan(&a, crop_frac, choice),
+                Err(e) => {
+                    eprintln!("análise de enquadramento falhou: {e:#}");
+                    face::plan(&face::Analysis::default(), crop_frac, "center")
+                }
+            }
+        };
+        framing_desc = plan.desc.clone();
+        graph = match plan.layout {
+            face::Layout::Fit => format!(
                 "[0:v]split=2[a][b];[a]scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},boxblur=20:2[bg];\
 [b]scale={w}:{h}:force_original_aspect_ratio=decrease:flags=lanczos{sharpen}[fg];[bg][fg]overlay=(W-w)/2:(H-h)/2,setsar=1[v0]"
             ),
-            "face" => {
-                let dets = face::track(job.src, job.start, dur, job.info.width, job.info.height)
-                    .await
-                    .unwrap_or_else(|e| {
-                        eprintln!("rastreamento de rosto falhou: {e:#}");
-                        vec![]
-                    });
-                let path = face::camera_path(&dets, w as f64 / sw as f64, dur, fps);
+            face::Layout::Split(top, bottom) => {
+                sub_position = Some("middle");
+                split_chain("0:v", "v0", top, bottom, (sw0, sh0), w, h)
+            }
+            face::Layout::Path => {
+                let path = face::camera_path(&plan.targets, &plan.hard_cuts, crop_frac, dur, fps);
                 let max_x = (sw - w) as f64;
                 let to_x = |c: f64| (c * sw as f64 - w as f64 / 2.0).clamp(0.0, max_x).round();
                 let x0 = path
                     .first()
                     .map(|c| to_x(*c))
                     .unwrap_or((max_x / 2.0).round());
-                // Uma posição por quadro: movimento contínuo, sem degraus
+                // Uma posição por quadro: movimento contínuo (ou corte seco quando planejado)
                 let mut cmds = String::new();
                 let mut prev = x0;
                 for (k, c) in path.iter().enumerate() {
@@ -236,17 +328,33 @@ pub async fn render(
                 }
                 let cmd_name = format!("{}.cmd", job.name);
                 tokio::fs::write(job.work.join(&cmd_name), &cmds).await?;
-                if cmds.is_empty() {
-                    format!(
-                        "[0:v]scale={sw}:{h}:flags=lanczos,crop@cf={w}:{h}:{x0}:0{sharpen},setsar=1[v0]"
-                    )
+                let send = if cmds.is_empty() {
+                    String::new()
                 } else {
-                    format!(
-                        "[0:v]scale={sw}:{h}:flags=lanczos,sendcmd=f={cmd_name},crop@cf={w}:{h}:{x0}:0{sharpen},setsar=1[v0]"
-                    )
+                    format!("sendcmd=f={cmd_name},")
+                };
+                match plan.split_pos.filter(|_| !plan.split_parts.is_empty()) {
+                    // Clipe misto: segue quem fala e mostra a tela dividida só na conversa rápida
+                    Some((top, bottom)) => {
+                        split_parts = plan.split_parts.clone();
+                        let enable: Vec<String> = plan
+                            .split_parts
+                            .iter()
+                            .map(|(a, b)| format!("between(t\\,{a:.2}\\,{b:.2})"))
+                            .collect();
+                        format!(
+                            "[0:v]split=2[pa][pb];[pa]scale={sw}:{h}:flags=lanczos,{send}crop@cf={w}:{h}:{x0}:0{sharpen},setsar=1[pv];\
+{};[pv][sv]overlay=0:0:enable='{}'[v0]",
+                            split_chain("pb", "sv", top, bottom, (sw0, sh0), w, h),
+                            enable.join("+")
+                        )
+                    }
+                    None => format!(
+                        "[0:v]scale={sw}:{h}:flags=lanczos,{send}crop@cf={w}:{h}:{x0}:0{sharpen},setsar=1[v0]"
+                    ),
                 }
             }
-            _ => format!(
+            face::Layout::Center => format!(
                 "[0:v]scale={w}:{h}:force_original_aspect_ratio=increase:flags=lanczos,crop={w}:{h}{sharpen},setsar=1[v0]"
             ),
         };
@@ -254,7 +362,16 @@ pub async fn render(
 
     if cfg.subtitles && !job.transcript.words.is_empty() {
         let ass_name = format!("{}.ass", job.name);
-        let ass = build_ass(cfg, &job.transcript.words, job.start, job.end, w, h);
+        let ass = build_ass(
+            cfg,
+            &job.transcript.words,
+            job.start,
+            job.end,
+            w,
+            h,
+            sub_position,
+            &split_parts,
+        );
         tokio::fs::write(job.work.join(&ass_name), ass).await?;
         let _ = write!(
             graph,
@@ -358,5 +475,5 @@ pub async fn render(
         &format!("{}.jpg", job.name),
     ]);
     let _ = proc::output(c).await;
-    Ok(())
+    Ok(framing_desc)
 }

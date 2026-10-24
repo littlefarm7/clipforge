@@ -527,6 +527,7 @@ async fn render_one(
         name: &clip.name,
         start: clip.start,
         end: clip.end,
+        framing: &clip.framing,
     };
     let res = render::render(job, cancel, |pr| {
         set_clip(&|c| c.progress = pr);
@@ -538,12 +539,13 @@ async fn render_one(
     })
     .await;
     match res {
-        Ok(()) => {
+        Ok(desc) => {
             app.update(id, true, |p| {
                 if let Some(c) = p.clips.iter_mut().find(|c| c.index == idx) {
                     c.status = "done".into();
                     c.progress = 1.0;
                     c.rev += 1;
+                    c.framing_desc = desc;
                 }
             });
             Ok(())
