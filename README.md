@@ -18,8 +18,6 @@ Baixe a versão mais recente em **[Releases](https://github.com/littlefarm7/clip
 
 No macOS, o app requer a versão 12 ou mais nova. A IA local precisa do macOS 13.3 ou mais novo.
 
-No macOS, o app requer a versão 12 ou mais nova. A IA local precisa do macOS 13.3 ou mais novo.
-
 ### Linux
 ```bash
 chmod +x ClipForge-*-x86_64.AppImage
