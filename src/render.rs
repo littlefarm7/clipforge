@@ -75,12 +75,33 @@ pub fn build_ass(
         "[Script Info]\nScriptType: v4.00+\nPlayResX: {w}\nPlayResY: {h}\nWrapStyle: 0\nScaledBorderAndShadow: yes\n\n\
 [V4+ Styles]\nFormat: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n\
 Style: Default,{font},{size},{primary},&H000000FF&,&H00000000&,&H96000000&,{bold},0,0,0,100,100,1,0,1,{outline},{shadow},{align},{ml},{ml},{mv},1\n\n\
+Style: Marca,Poppins,{wm_size},&H8CFFFFFF&,&H000000FF&,&HC8000000&,&HFF000000&,-1,0,0,0,100,100,1,0,1,{wm_outline},0,5,0,0,0,1\n\n\
 [Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n",
         primary = ass_color(&cfg.sub_color),
         shadow = (outline * 0.6).round(),
         ml = (w as f64 * 0.08).round(),
         mv = margin_v.round(),
+        wm_size = (46.0 * scale).round(),
+        wm_outline = (2.0 * scale).max(1.0).round(),
     );
+    // Marca d'água semitransparente com o @ do perfil, durante o clipe inteiro.
+    // Fica fora do caminho das legendas: perto da borda, ou um pouco abaixo do meio.
+    if let Some(text) = cfg.watermark_text() {
+        let y = match cfg.watermark_position.as_str() {
+            "middle" => h as f64 * 0.58,
+            "bottom" => h as f64 * if vertical { 0.92 } else { 0.93 },
+            _ => h as f64 * if vertical { 0.07 } else { 0.08 },
+        };
+        let _ = writeln!(
+            s,
+            "Dialogue: 1,{},{},Marca,,0,0,0,,{{\\pos({},{})}}{}",
+            ass_time(0.0),
+            ass_time((end - start).max(0.1) + 1.0),
+            (w as f64 / 2.0).round(),
+            y.round(),
+            ass_escape(&text)
+        );
+    }
     let hl = ass_color(&cfg.sub_highlight);
     let words: Vec<Word> = words
         .iter()
@@ -360,11 +381,12 @@ pub async fn render(
         };
     }
 
-    if cfg.subtitles && !job.transcript.words.is_empty() {
+    let with_subs = cfg.subtitles && !job.transcript.words.is_empty();
+    if with_subs || cfg.watermark_text().is_some() {
         let ass_name = format!("{}.ass", job.name);
         let ass = build_ass(
             cfg,
-            &job.transcript.words,
+            if with_subs { &job.transcript.words } else { &[] },
             job.start,
             job.end,
             w,
@@ -476,4 +498,22 @@ pub async fn render(
     ]);
     let _ = proc::output(c).await;
     Ok(framing_desc)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn marca_dagua_com_arroba_do_perfil() {
+        let mut cfg = Config::default();
+        assert!(!build_ass(&cfg, &[], 0.0, 10.0, 1080, 1920, None, &[]).contains("Marca,,"));
+        cfg.watermark = "  meu perfil ".into();
+        assert_eq!(cfg.watermark_text().as_deref(), Some("@meuperfil"));
+        cfg.watermark = "@@canal".into();
+        let ass = build_ass(&cfg, &[], 0.0, 10.0, 1080, 1920, None, &[]);
+        assert!(ass.contains("Marca,,0,0,0,,{\\pos(540,134)}@canal"), "{ass}");
+        cfg.watermark = "@".into();
+        assert!(cfg.watermark_text().is_none());
+    }
 }

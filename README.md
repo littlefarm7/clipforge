@@ -62,6 +62,7 @@ O app não tem janela própria. A interface abre no navegador em `http://127.0.0
    - Qualidade de Shorts profissionais: baixa o original em até 4K para o recorte vertical ficar nítido,
      mantém 60 quadros por segundo, compressão de alta qualidade e cores no padrão BT.709.
    - Legendas estilo karaokê, com a palavra falada em destaque.
+   - Marca d'água opcional com o @ do seu perfil, semitransparente (em cima, no meio ou embaixo).
 
 Nada sai do seu computador, a não ser que você escolha usar uma API.
 
@@ -85,6 +86,7 @@ O ClipForge cuida sozinho das partes técnicas:
 - **Para ajustar um clipe:** clique em **✎ Ajustar**, mude o início, o fim ou o título e clique em **Salvar e gerar de novo**.
 - **Para baixar tudo:** use **⬇ Baixar todos**.
 - **Legendas:** escolha o estilo (Clássico, Moderno, Neon ou Pop), a posição e o tamanho em ⚙ Ajustes.
+- **Marca d'água:** em ⚙ Ajustes → **Marca d'água**, digite o @ do perfil e escolha a posição. Deixe em branco para não usar.
 - **Quem entende de tecnologia:** encontra outros serviços de IA, a memória de contexto e os argumentos do yt-dlp em ⚙ Ajustes → **Opções avançadas**.
 
 ### Onde ficam os dados

@@ -46,6 +46,12 @@ pub struct Config {
     pub sub_uppercase: bool,
     pub words_per_line: u32,
 
+    // Marca d'água
+    /// @ do perfil mostrado semitransparente no vídeo (vazio = sem marca d'água)
+    pub watermark: String,
+    /// "top", "middle" ou "bottom"
+    pub watermark_position: String,
+
     /// Nível de qualidade escolhido no modo local ("fast", "balanced", "best")
     pub tier: String,
     /// 0 = automático
@@ -84,6 +90,8 @@ impl Default for Config {
             sub_position: "bottom".into(),
             sub_uppercase: true,
             words_per_line: 3,
+            watermark: String::new(),
+            watermark_position: "top".into(),
             tier: String::new(),
             threads: 0,
             ytdlp_args: String::new(),
@@ -117,6 +125,19 @@ impl Config {
                 .unwrap_or(4)
                 .clamp(1, 16)
         }
+    }
+
+    /// Texto da marca d'água ("@perfil"), ou None se estiver desligada.
+    pub fn watermark_text(&self) -> Option<String> {
+        let h: String = self
+            .watermark
+            .trim()
+            .trim_start_matches('@')
+            .chars()
+            .filter(|c| !c.is_whitespace())
+            .take(40)
+            .collect();
+        (!h.is_empty()).then(|| format!("@{h}"))
     }
 
     /// Tamanho de saída (largura, altura) conforme proporção e qualidade.

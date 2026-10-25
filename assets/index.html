@@ -324,6 +324,15 @@ details.adv[open] summary:before{content:"▾ ";}
       </div>
 
       <div class="sec">
+        <h3>Marca d'água (opcional)</h3>
+        <div class="grid2">
+          <div><label class="l">@ do seu perfil</label><input id="s-wm" placeholder="@seuperfil" maxlength="41" onchange="setCfg({watermark:this.value.trim()})"></div>
+          <div><label class="l">Posição</label><div class="chips" id="s-wm-pos"></div></div>
+        </div>
+        <div class="hint">Aparece semitransparente em todos os clipes. Deixe em branco para não usar.</div>
+      </div>
+
+      <div class="sec">
         <h3>Vídeo</h3>
         <div class="grid2">
           <div><label class="l">Idioma falado no vídeo</label>
@@ -412,6 +421,7 @@ const STYLES = [
 ];
 const SIZES = [['Pequeno',70],['Médio',90],['Grande',115]];
 const POSITIONS = [['bottom','Embaixo'],['middle','No meio'],['top','Em cima']];
+const WM_POSITIONS = [['top','Em cima'],['middle','No meio'],['bottom','Embaixo']];
 
 function toast(msg, ms=3500){ const t=$('#toast'); t.textContent=msg; t.classList.add('on'); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('on'), ms); }
 async function api(path, opts={}){
@@ -693,6 +703,8 @@ function renderSettings(){
   }).join('');
   chips($('#s-pos'), POSITIONS.map(([v,l])=>({v,html:l})), x=>x.v===CFG.sub_position, 'pickPos');
   chips($('#s-size'), SIZES.map(([l,v])=>({v,html:l})), x=>Math.abs(x.v-CFG.sub_size)<8, 'pickSize');
+  chips($('#s-wm-pos'), WM_POSITIONS.map(([v,l])=>({v,html:l})), x=>x.v===(CFG.watermark_position||'top'), 'pickWmPos');
+  if (document.activeElement!==$('#s-wm')) $('#s-wm').value = CFG.watermark||'';
   chips($('#s-quality'), [['1080','Máxima nitidez (4K na origem, 60 fps)'],['720','Mais rápida']].map(([v,l])=>({v,html:l})), x=>x.v===CFG.quality, 'pickQuality');
   $('#s-lang').value = CFG.language; if (document.activeElement!==$('#s-extra')) $('#s-extra').value = CFG.extra_prompt||'';
   const adv = {'a-llm-base':'llm_api_base','a-llm-model':'llm_api_model','a-llm-key':'llm_api_key','a-stt':'stt_provider','a-stt-base':'stt_api_base','a-stt-model':'stt_api_model','a-stt-key':'stt_api_key','a-ctx':'llm_ctx','a-threads':'threads','a-min':'min_len','a-max':'max_len','a-ytdlp':'ytdlp_args'};
@@ -708,6 +720,7 @@ function pickTier(id){ setup({mode:'local', tier:id}, `Qualidade "${tierInfo(id)
 function saveOnline(){ setup({mode:'online', key:$('#s-groq').value}, 'Pronto! Usando o serviço online.'); }
 function pickStyle(id){ const s=STYLES.find(x=>x.id===id); setCfg({sub_font:s.font, sub_color:s.color, sub_highlight:s.hl, sub_uppercase:s.upper, subtitles:true}); }
 function pickPos(i){ setCfg({sub_position:POSITIONS[i][0]}); }
+function pickWmPos(i){ setCfg({watermark_position:WM_POSITIONS[i][0]}); }
 function pickSize(i){ setCfg({sub_size:SIZES[i][1]}); }
 function pickQuality(i){ setCfg({quality:['1080','720'][i]}); }
 async function openSettings(){
