@@ -80,7 +80,7 @@ impl Default for ReframeConfig {
             zoom_end: 1.12,
             face_y: 0.38,
             switch_sec: 1.0,
-            punch_in: false,
+            punch_in: true,
             width: 1080,
             height: 1920,
             fps: 0.0,

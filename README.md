@@ -58,7 +58,7 @@ O app não tem janela própria. A interface abre no navegador em `http://127.0.0
      - entre os pontos, a câmera anda em linha reta e com velocidade constante, sem tremer;
      - a cada trecho, faz um zoom lento de 1,00× até 1,12×, com o rosto a 38% da altura;
      - recomeça o trecho e o zoom em cada corte de cena do vídeo original;
-     - opcional: zoom rápido (punch-in) com desfoque de movimento nas trocas;
+     - zoom rápido (punch-in) com desfoque de movimento nas trocas (dá para desligar);
      - mostra o vídeo inteiro quando não há rostos.
      Dá para trocar o enquadramento de cada clipe em ✎ Ajustar: Auto reframe, Seguir quem fala (suave),
      Tela dividida, Centralizar ou Vídeo inteiro.
@@ -99,7 +99,7 @@ O ClipForge cuida sozinho das partes técnicas:
 | `zoom_start` / `zoom_end` | 1.00 / 1.12 | Zoom linear do começo ao fim de cada trecho |
 | `face_y` | 0.38 | Altura do rosto no recorte (38% a partir do topo) |
 | `switch_sec` | 1.0 | Tempo mínimo de fala para trocar de pessoa |
-| `punch_in` | desligado | Zoom rápido (0,2 s) com desfoque de movimento nas trocas |
+| `punch_in` | ligado | Zoom rápido (0,2 s) com desfoque de movimento nas trocas |
 
 Pela linha de comando:
 ```bash
