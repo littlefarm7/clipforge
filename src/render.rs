@@ -4,11 +4,15 @@ use crate::config::Config;
 use crate::face;
 use crate::paths;
 use crate::proc::{self, ProbeInfo};
+use crate::reframe::{self, ReframeConfig};
 use crate::transcribe::{Transcript, Word};
 use anyhow::{Context, Result};
 use std::fmt::Write as _;
 use std::path::Path;
 use tokio_util::sync::CancellationToken;
+
+/// Parte do progresso do clipe ocupada pelo auto reframe (o resto é o passo das legendas).
+const REFRAME_SHARE: f32 = 0.85;
 
 fn ass_color(hex: &str) -> String {
     let h = hex.trim().trim_start_matches('#');
@@ -243,6 +247,8 @@ pub async fn render(
     let mut framing_desc = String::from("Só áudio");
     let mut sub_position: Option<&str> = None;
     let mut split_parts: Vec<(f64, f64)> = Vec::new();
+    // Vídeo já enquadrado pelo auto reframe (entrada do passo das legendas)
+    let mut reframed: Option<std::path::PathBuf> = None;
 
     if !job.info.has_video {
         // Só áudio (podcast): fundo escuro + legendas
@@ -275,7 +281,7 @@ pub async fn render(
             ""
         };
         // Escolha do enquadramento: a do clipe (se houver) ou a geral
-        let choice = match job.framing {
+        let mut choice = match job.framing {
             "" | "auto" => match mode {
                 "center" => "center",
                 "blur" => "fit",
@@ -284,7 +290,67 @@ pub async fn render(
             c => c,
         };
         let crop_frac = w as f64 / sw as f64;
-        let plan = if sw <= w + 8 && choice != "fit" {
+        // Automático: auto reframe (câmera virtual com keyframes e zoom linear). Gera um
+        // vídeo intermediário já enquadrado; as legendas entram no passo seguinte.
+        if choice == "auto" && sw > w + 8 {
+            let rc = ReframeConfig {
+                width: w,
+                height: h,
+                fps,
+                // Intermediário quase sem perdas: o vídeo é comprimido de novo com as legendas
+                crf: 12,
+                preset: "veryfast".into(),
+                threads: cfg.threads(),
+                ..cfg.reframe.clone()
+            };
+            match reframe::analyze(
+                job.src,
+                job.start,
+                dur,
+                job.info.width,
+                job.info.height,
+                &rc,
+            )
+            .await
+            {
+                Ok(a) if a.has_faces() => {
+                    let p = reframe::plan(&a, &rc);
+                    let tmp = job.work.join(format!("{}.reframe.mp4", job.name));
+                    let r = reframe::render_video(
+                        job.src,
+                        &tmp,
+                        job.start,
+                        dur,
+                        job.info,
+                        &p,
+                        &rc,
+                        cancel,
+                        |f| progress(f * REFRAME_SHARE),
+                    )
+                    .await;
+                    match r {
+                        Ok(()) => {
+                            framing_desc = p.desc;
+                            reframed = Some(tmp);
+                        }
+                        Err(e) if cancel.is_cancelled() => return Err(e),
+                        Err(e) => {
+                            eprintln!("auto reframe falhou: {e:#}");
+                            choice = "speaker";
+                        }
+                    }
+                }
+                // Sem ninguém na imagem: mostra o vídeo inteiro
+                Ok(_) => choice = "fit",
+                Err(e) => {
+                    eprintln!("auto reframe falhou: {e:#}");
+                    choice = "speaker";
+                }
+            }
+        }
+        let plan = if reframed.is_some() {
+            face::plan(&face::Analysis::default(), crop_frac, "center")
+        } else if sw <= w + 8 && choice != "fit" {
             // Vídeo original já vertical: não há o que recortar dos lados
             face::plan(&face::Analysis::default(), crop_frac, "center")
         } else if choice == "center" || choice == "fit" {
@@ -298,8 +364,11 @@ pub async fn render(
                 }
             }
         };
-        framing_desc = plan.desc.clone();
+        if reframed.is_none() {
+            framing_desc = plan.desc.clone();
+        }
         graph = match plan.layout {
+            _ if reframed.is_some() => "[0:v]setsar=1[v0]".to_string(),
             face::Layout::Fit => format!(
                 "[0:v]split=2[a][b];[a]scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},boxblur=20:2[bg];\
 [b]scale={w}:{h}:force_original_aspect_ratio=decrease:flags=lanczos{sharpen}[fg];[bg][fg]overlay=(W-w)/2:(H-h)/2,setsar=1[v0]"
@@ -386,14 +455,21 @@ pub async fn render(
     let mut c = crate::proc::command(paths::ffmpeg());
     c.current_dir(job.work);
     c.args(["-hide_banner", "-y", "-nostats", "-progress", "pipe:1"]);
-    c.args([
-        "-ss",
-        &format!("{:.3}", job.start),
-        "-t",
-        &format!("{dur:.3}"),
-        "-i",
-    ])
-    .arg(job.src);
+    match &reframed {
+        Some(v) => {
+            c.arg("-i").arg(v);
+        }
+        None => {
+            c.args([
+                "-ss",
+                &format!("{:.3}", job.start),
+                "-t",
+                &format!("{dur:.3}"),
+                "-i",
+            ])
+            .arg(job.src);
+        }
+    }
     c.args(&inputs);
     c.args(["-filter_complex", &graph, "-map", "[v]", "-map", "0:a?"]);
     let fps_s = fps.to_string();
@@ -446,11 +522,19 @@ pub async fn render(
             .or_else(|| line.strip_prefix("out_time_ms="))
             && let Ok(us) = v.trim().parse::<f64>()
         {
-            progress(((us / 1e6) / dur).clamp(0.0, 1.0) as f32);
+            let f = ((us / 1e6) / dur).clamp(0.0, 1.0) as f32;
+            progress(if reframed.is_some() {
+                REFRAME_SHARE + (1.0 - REFRAME_SHARE) * f
+            } else {
+                f
+            });
         }
     })
     .await
     .context("falha ao renderizar o clipe")?;
+    if let Some(v) = &reframed {
+        let _ = tokio::fs::remove_file(v).await;
+    }
 
     // Miniatura
     let mut c = crate::proc::command(paths::ffmpeg());

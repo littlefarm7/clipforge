@@ -34,6 +34,8 @@ pub struct Config {
     pub crop_mode: String,
     /// "1080" ou "720"
     pub quality: String,
+    /// Auto reframe (câmera virtual com keyframes e zoom linear)
+    pub reframe: crate::reframe::ReframeConfig,
 
     // Legendas
     pub subtitles: bool,
@@ -76,6 +78,7 @@ impl Default for Config {
             aspect: "9:16".into(),
             crop_mode: "face".into(),
             quality: "1080".into(),
+            reframe: Default::default(),
             subtitles: true,
             sub_font: "Anton".into(),
             sub_size: 90,
