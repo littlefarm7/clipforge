@@ -12,7 +12,6 @@ mod models;
 mod paths;
 mod pipeline;
 mod proc;
-mod reframe;
 mod render;
 mod state;
 mod transcribe;
@@ -601,58 +600,9 @@ async fn framing_diagnostics(args: &[String]) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// `clipforge --reframe ENTRADA SAIDA INICIO DURACAO`: gera um corte vertical com o
-/// auto reframe e mostra, em JSON, os trechos e keyframes usados.
-async fn reframe_cli(args: &[String]) -> anyhow::Result<()> {
-    let (input, output) = (
-        std::path::PathBuf::from(&args[0]),
-        std::path::PathBuf::from(&args[1]),
-    );
-    let start: f64 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(0.0);
-    let dur: f64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(30.0);
-    let cfg = Config::load().reframe;
-    let token = tokio_util::sync::CancellationToken::new();
-    let t0 = std::time::Instant::now();
-    let plan = reframe::reframe_with(&input, &output, start, dur, &cfg, &token, |_| {}).await?;
-    eprintln!(
-        "pronto em {:.1} s: {}",
-        t0.elapsed().as_secs_f64(),
-        output.display()
-    );
-    println!("{}", serde_json::to_string_pretty(&plan)?);
-    Ok(())
-}
-
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let args: Vec<String> = std::env::args().collect();
-    if args.get(1).map(String::as_str) == Some("--diagnostico-reframe") && args.len() >= 3 {
-        let video = std::path::PathBuf::from(&args[2]);
-        let start: f64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(0.0);
-        let dur: f64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(30.0);
-        let info = proc::probe(&video).await?;
-        let cfg = Config::load().reframe;
-        let a = reframe::analyze(&video, start, dur, info.width, info.height, &cfg).await?;
-        let frames: Vec<Value> = a
-            .frames
-            .iter()
-            .map(|f| {
-                json!({
-                    "voice": (f.voice * 1000.0).round() / 1000.0,
-                    "cut": f.cut,
-                    "faces": f.faces.iter().map(|s| json!([s.track, (s.cx * 1000.0).round() / 1000.0, (s.mouth * 100.0).round() / 100.0, s.detected])).collect::<Vec<_>>(),
-                })
-            })
-            .collect();
-        println!(
-            "{}",
-            json!({"tracks": a.tracks, "plan": reframe::plan(&a, &cfg), "frames": frames})
-        );
-        return Ok(());
-    }
-    if args.get(1).map(String::as_str) == Some("--reframe") && args.len() >= 4 {
-        return reframe_cli(&args[2..]).await;
-    }
     if args.get(1).map(String::as_str) == Some("--diagnostico-enquadramento") && args.len() >= 3 {
         return framing_diagnostics(&args[2..]).await;
     }

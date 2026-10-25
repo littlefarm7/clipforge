@@ -354,15 +354,6 @@ details.adv[open] summary:before{content:"▾ ";}
           <div><label class="l">Duração mínima / máxima (segundos)</label><div class="row"><input id="a-min" type="number" onchange="setCfg({min_len:Number(this.value)})"><input id="a-max" type="number" onchange="setCfg({max_len:Number(this.value)})"></div></div>
           <div><label class="l">Argumentos extras do yt-dlp</label><input id="a-ytdlp" placeholder="--cookies-from-browser firefox" onchange="setCfg({ytdlp_args:this.value})"></div>
         </div>
-        <label class="l" style="margin-top:14px">Auto reframe (câmera virtual)</label>
-        <div class="grid2">
-          <div><label class="l">Detectar rostos a cada (segundos)</label><input id="rf-key_sec" type="number" step="0.1" min="0.1" max="5" onchange="setRf('key_sec',this.value)"></div>
-          <div><label class="l">Zona morta (fração da imagem)</label><input id="rf-deadzone" type="number" step="0.01" min="0" max="0.5" onchange="setRf('deadzone',this.value)"></div>
-          <div><label class="l">Zoom no início / no fim de cada trecho</label><div class="row"><input id="rf-zoom_start" type="number" step="0.01" min="1" max="3" onchange="setRf('zoom_start',this.value)"><input id="rf-zoom_end" type="number" step="0.01" min="1" max="3" onchange="setRf('zoom_end',this.value)"></div></div>
-          <div><label class="l">Altura do rosto no quadro (0 = topo, 1 = base)</label><input id="rf-face_y" type="number" step="0.01" min="0.1" max="0.9" onchange="setRf('face_y',this.value)"></div>
-          <div><label class="l">Tempo mínimo para trocar de pessoa (segundos)</label><input id="rf-switch_sec" type="number" step="0.1" min="0" max="10" onchange="setRf('switch_sec',this.value)"></div>
-          <div><label class="l">Zoom rápido nas trocas (punch-in)</label><select id="rf-punch_in" onchange="setRf('punch_in',this.value==='true')"><option value="false">Desligado</option><option value="true">Ligado</option></select></div>
-        </div>
         <div class="row wrap" style="margin-top:14px">
           <button class="small" onclick="testLlm()">🔌 Testar a IA</button>
           <button class="small" onclick="updateYtdlp()">⟳ Atualizar o baixador de vídeos</button>
@@ -412,7 +403,7 @@ let CFG = null, MODELS = null, MACHINE = null, STATE = {projects: [], downloads:
 const DURS = [['Curtos', 15, 30], ['Médios', 30, 60], ['Longos', 60, 90]];
 const ASPECTS = [['9:16','Vertical',9,16], ['1:1','Quadrado',12,12], ['16:9','Horizontal',16,9]];
 const CROPS = [['face','Automático'], ['center','Centralizar'], ['blur','Vídeo inteiro']];
-const FRAMINGS = [['auto','Auto reframe','O rosto de quem fala fica no centro. A câmera anda devagar entre os pontos e faz um zoom lento. Sem rostos, mostra o vídeo inteiro'], ['speaker','Seguir quem fala (suave)','Câmera com curvas suaves e sem zoom'], ['split','Tela dividida','Duas pessoas, uma em cima e outra embaixo'], ['center','Centralizar','Recorte fixo no meio da imagem'], ['fit','Vídeo inteiro','Mostra a imagem toda com fundo desfocado']];
+const FRAMINGS = [['auto','Automático','O ClipForge decide: segue quem fala, junta duas pessoas, divide a tela ou mostra o vídeo inteiro'], ['speaker','Seguir quem fala','Corta para a pessoa que está falando'], ['split','Tela dividida','Duas pessoas, uma em cima e outra embaixo'], ['center','Centralizar','Recorte fixo no meio da imagem'], ['fit','Vídeo inteiro','Mostra a imagem toda com fundo desfocado']];
 const STYLES = [
   {id:'classic', name:'Clássico', font:'Anton', color:'#FFFFFF', hl:'#FFE000', upper:true},
   {id:'modern', name:'Moderno', font:'Poppins', color:'#FFFFFF', hl:'#B18CFF', upper:false},
@@ -706,10 +697,7 @@ function renderSettings(){
   $('#s-lang').value = CFG.language; if (document.activeElement!==$('#s-extra')) $('#s-extra').value = CFG.extra_prompt||'';
   const adv = {'a-llm-base':'llm_api_base','a-llm-model':'llm_api_model','a-llm-key':'llm_api_key','a-stt':'stt_provider','a-stt-base':'stt_api_base','a-stt-model':'stt_api_model','a-stt-key':'stt_api_key','a-ctx':'llm_ctx','a-threads':'threads','a-min':'min_len','a-max':'max_len','a-ytdlp':'ytdlp_args'};
   for (const [id,f] of Object.entries(adv)) if (document.activeElement!==$('#'+id)) $('#'+id).value = CFG[f];
-  const rf = CFG.reframe || {};
-  for (const k of ['key_sec','deadzone','zoom_start','zoom_end','face_y','switch_sec','punch_in']) { const el=$('#rf-'+k); if (el && document.activeElement!==el && rf[k]!==undefined) el.value = String(rf[k]); }
 }
-function setRf(k, v){ const n = typeof v==='boolean' ? v : Number(v); if (typeof n==='number' && !isFinite(n)) return; setCfg({reframe:{...(CFG.reframe||{}), [k]:n}}); }
 document.querySelectorAll('#modes .mode').forEach(x=>x.onclick=()=>pickMode(x.dataset.v));
 function pickMode(v){
   if (v==='online'){ $('#m-local').style.display='none'; $('#m-online').style.display=''; document.querySelectorAll('#modes .mode').forEach(x=>x.classList.toggle('on', x.dataset.v==='online')); return; }

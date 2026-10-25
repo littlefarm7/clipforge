@@ -51,17 +51,14 @@ O app não tem janela própria. A interface abre no navegador em `http://127.0.0
    - Sem IA: uma heurística simples, sem modelo.
 4. **Renderiza** cada clipe com o ffmpeg:
    - Formatos 9:16, 1:1, 4:5 ou 16:9.
-   - **Auto reframe** (padrão), no estilo do Opus Clip:
-     - detecta os rostos com o YuNet (funciona também com o rosto de perfil) a cada 0,5 s;
-     - descobre quem está falando pelo movimento dos lábios (com a cabeça estabilizada) e pela voz;
-     - troca de pessoa só quando a outra fala por mais de 1 s, e a troca cai no momento em que ela começa a falar;
-     - entre os pontos, a câmera anda em linha reta e com velocidade constante, sem tremer;
-     - a cada trecho, faz um zoom lento de 1,00× até 1,12×, com o rosto a 38% da altura;
-     - recomeça o trecho e o zoom em cada corte de cena do vídeo original;
-     - zoom rápido (punch-in) com desfoque de movimento nas trocas (dá para desligar);
+   - Enquadramento automático e pensado para cada clipe:
+     - descobre quem está falando (movimento da boca com a cabeça estabilizada + voz);
+     - corta para quem fala em podcasts de plano aberto;
+     - enquadra duas pessoas juntas quando cabem no quadro;
+     - usa tela dividida nos trechos de conversa rápida;
+     - respeita os cortes de câmera do vídeo original;
      - mostra o vídeo inteiro quando não há rostos.
-     Dá para trocar o enquadramento de cada clipe em ✎ Ajustar: Auto reframe, Seguir quem fala (suave),
-     Tela dividida, Centralizar ou Vídeo inteiro.
+     Dá para trocar o enquadramento de cada clipe em ✎ Ajustar.
    - Qualidade de Shorts profissionais: baixa o original em até 4K para o recorte vertical ficar nítido,
      mantém 60 quadros por segundo, compressão de alta qualidade e cores no padrão BT.709.
    - Legendas estilo karaokê, com a palavra falada em destaque.
@@ -88,23 +85,7 @@ O ClipForge cuida sozinho das partes técnicas:
 - **Para ajustar um clipe:** clique em **✎ Ajustar**, mude o início, o fim ou o título e clique em **Salvar e gerar de novo**.
 - **Para baixar tudo:** use **⬇ Baixar todos**.
 - **Legendas:** escolha o estilo (Clássico, Moderno, Neon ou Pop), a posição e o tamanho em ⚙ Ajustes.
-- **Quem entende de tecnologia:** encontra outros serviços de IA, a memória de contexto, os argumentos do yt-dlp e os parâmetros do auto reframe em ⚙ Ajustes → **Opções avançadas**.
-
-### Parâmetros do auto reframe
-
-| Parâmetro | Padrão | O que faz |
-|---|---|---|
-| `key_sec` | 0.5 | Intervalo entre detecções de rosto (keyframes), em segundos |
-| `deadzone` | 0.04 | A câmera fica parada se o rosto andou menos que 4% da imagem |
-| `zoom_start` / `zoom_end` | 1.00 / 1.12 | Zoom linear do começo ao fim de cada trecho |
-| `face_y` | 0.38 | Altura do rosto no recorte (38% a partir do topo) |
-| `switch_sec` | 1.0 | Tempo mínimo de fala para trocar de pessoa |
-| `punch_in` | ligado | Zoom rápido (0,2 s) com desfoque de movimento nas trocas |
-
-Pela linha de comando:
-```bash
-clipforge --reframe ENTRADA.mp4 SAIDA.mp4 INICIO DURACAO   # gera o corte e mostra os trechos em JSON
-```
+- **Quem entende de tecnologia:** encontra outros serviços de IA, a memória de contexto e os argumentos do yt-dlp em ⚙ Ajustes → **Opções avançadas**.
 
 ### Onde ficam os dados
 
@@ -141,8 +122,7 @@ Ao enviar uma tag `v*` para o GitHub, o workflow `.github/workflows/release.yml`
 | `src/highlights.rs` | Seleção de trechos e títulos com IA ou heurística |
 | `src/llm.rs` | Cliente compatível com OpenAI e llama-server local |
 | `src/render.rs` | ffmpeg, recortes e legendas ASS animadas |
-| `src/reframe.rs` | Auto reframe: YuNet, quem fala, keyframes, zoom linear e renderização por pipe |
-| `src/face.rs` | Modos "Seguir quem fala" e tela dividida (rustface) |
+| `src/face.rs` | Detecção de rosto (rustface) e caminho suave da câmera |
 | `src/models.rs` | Catálogo e download de modelos |
 | `src/paths.rs` | Pastas de dados e localização das ferramentas em cada sistema |
 | `assets/index.html` | Interface |

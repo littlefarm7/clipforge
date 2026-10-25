@@ -25,7 +25,7 @@ const AW: u32 = 640;
 /// Detecta rostos a cada N quadros; entre detecções as pessoas mantêm a posição.
 const DETECT_EVERY: usize = 3;
 /// Diferença média entre quadros (0–255) acima da qual há um corte de câmera.
-pub(crate) const CUT_DIFF: f64 = 28.0;
+const CUT_DIFF: f64 = 28.0;
 
 /// Uma pessoa vista em um quadro.
 #[derive(Debug, Clone, Copy)]
@@ -65,7 +65,7 @@ struct Track {
     ended: bool,
 }
 
-pub(crate) fn std_command(program: impl AsRef<std::ffi::OsStr>) -> std::process::Command {
+fn std_command(program: impl AsRef<std::ffi::OsStr>) -> std::process::Command {
     #[allow(unused_mut)]
     let mut c = std::process::Command::new(program);
     #[cfg(windows)]
@@ -78,17 +78,17 @@ pub(crate) fn std_command(program: impl AsRef<std::ffi::OsStr>) -> std::process:
 
 /// Região retangular em pixels: x0..x1, y0..y1.
 #[derive(Clone, Copy)]
-pub(crate) struct Rect {
-    pub(crate) x0: usize,
-    pub(crate) y0: usize,
-    pub(crate) x1: usize,
-    pub(crate) y1: usize,
+struct Rect {
+    x0: usize,
+    y0: usize,
+    x1: usize,
+    y1: usize,
 }
 
 /// Diferença média entre o quadro atual e o anterior deslocado por (dx, dy),
 /// amostrando 1 a cada `step` pixels. Pixels que saem da imagem são ignorados.
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn shifted_diff(
+fn shifted_diff(
     prev: &[u8],
     cur: &[u8],
     w: usize,
@@ -119,14 +119,7 @@ pub(crate) fn shifted_diff(
 
 /// Encontra o deslocamento do rosto entre dois quadros (balanço da cabeça), testando
 /// deslocamentos de até `r` pixels e escolhendo o que melhor encaixa as imagens.
-pub(crate) fn head_shift(
-    prev: &[u8],
-    cur: &[u8],
-    w: usize,
-    h: usize,
-    face: Rect,
-    r: i32,
-) -> (i32, i32) {
+fn head_shift(prev: &[u8], cur: &[u8], w: usize, h: usize, face: Rect, r: i32) -> (i32, i32) {
     let mut best = (f64::MAX, 0, 0);
     for dy in -r..=r {
         for dx in -r..=r {
@@ -155,7 +148,7 @@ fn half_size(img: &[u8], w: usize, h: usize) -> Vec<u8> {
 }
 
 /// Volume da voz por quadro de análise (RMS entre 0 e 1).
-pub(crate) fn audio_levels(src: &Path, start: f64, dur: f64, frames: usize) -> Vec<f64> {
+fn audio_levels(src: &Path, start: f64, dur: f64, frames: usize) -> Vec<f64> {
     let rate = 8000usize;
     let out = std_command(paths::ffmpeg())
         .args([
