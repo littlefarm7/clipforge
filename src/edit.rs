@@ -744,6 +744,26 @@ fn enable_expr(spans: &[(f64, f64)]) -> String {
         .join("+")
 }
 
+/// Opção do ffmpeg que lê os filtros de um arquivo: o ffmpeg 7.1+ usa "-/filter_complex"
+/// e as versões novas não têm mais "-filter_complex_script".
+fn graph_file_flag() -> &'static str {
+    static FLAG: std::sync::OnceLock<&'static str> = std::sync::OnceLock::new();
+    FLAG.get_or_init(|| {
+        let help = face::std_command(paths::ffmpeg())
+            .args(["-hide_banner", "-h", "long"])
+            .stdin(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .output()
+            .map(|o| String::from_utf8_lossy(&o.stdout).into_owned())
+            .unwrap_or_default();
+        if help.contains("filter_complex_script") {
+            "-filter_complex_script"
+        } else {
+            "-/filter_complex"
+        }
+    })
+}
+
 /// Renderiza um clipe na estrutura pedida e devolve a descrição da edição.
 pub async fn render(
     job: &RenderJob<'_>,
@@ -1292,7 +1312,7 @@ afade=t=out:st={:.3}:d=0.8,loudnorm=I={lufs}:TP=-1.0:LRA=9,aresample=48000[aout]
         c.args(["-stream_loop", "-1", "-i"]).arg(m);
     }
     c.args([
-        "-filter_complex_script",
+        graph_file_flag(),
         &script,
         "-map",
         "[vout]",
