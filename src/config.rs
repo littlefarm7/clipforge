@@ -77,7 +77,7 @@ impl Default for Config {
             llm_api_base: "https://api.groq.com/openai/v1".into(),
             llm_api_key: String::new(),
             llm_api_model: "llama-3.3-70b-versatile".into(),
-            llm_local_model: "qwen2.5-3b-instruct-q4_k_m.gguf".into(),
+            llm_local_model: "gemma-4-E4B-it-Q4_K_M.gguf".into(),
             llm_ctx: 0,
             extra_prompt: String::new(),
             max_clips: 6,
@@ -107,10 +107,41 @@ impl Default for Config {
 
 impl Config {
     pub fn load() -> Self {
-        std::fs::read_to_string(crate::paths::config_path())
+        let mut cfg: Self = std::fs::read_to_string(crate::paths::config_path())
             .ok()
             .and_then(|s| serde_json::from_str(&s).ok())
-            .unwrap_or_default()
+            .unwrap_or_default();
+        if cfg.upgrade_local_model(crate::paths::total_ram_gb()) {
+            let _ = cfg.save();
+        }
+        cfg
+    }
+
+    /// Troca a IA local da versão anterior (Qwen 2.5) pela nova do mesmo nível, sem passar
+    /// do que a memória do computador aguenta. O arquivo novo é baixado sozinho no próximo uso.
+    pub fn upgrade_local_model(&mut self, ram_gb: f64) -> bool {
+        if crate::models::upgraded_llm(&self.llm_local_model).is_none() {
+            return false;
+        }
+        let order = ["fast", "balanced", "best"];
+        let old_level = match self.llm_local_model.as_str() {
+            "qwen2.5-1.5b-instruct-q4_k_m.gguf" => 0,
+            "qwen2.5-3b-instruct-q4_k_m.gguf" => 1,
+            _ => 2,
+        };
+        let ram_level = order
+            .iter()
+            .position(|t| *t == crate::models::recommended_tier(ram_gb))
+            .unwrap_or(1);
+        let tier = order[old_level.min(ram_level)];
+        let Some(t) = crate::models::tiers().into_iter().find(|t| t.id == tier) else {
+            return false;
+        };
+        self.llm_local_model = t.llm_file.to_string();
+        if !self.tier.is_empty() {
+            self.tier = tier.to_string();
+        }
+        true
     }
 
     pub fn save(&self) -> anyhow::Result<()> {
@@ -164,5 +195,30 @@ impl Config {
             "16:9" => (even(base as f64 * 16.0 / 9.0), base),
             _ => (base, even(base as f64 * 16.0 / 9.0)),
         }
+    }
+}
+
+#[cfg(test)]
+mod upgrade_tests {
+    use super::*;
+
+    #[test]
+    fn troca_a_ia_antiga_pela_nova_conforme_a_memoria() {
+        let mut c = Config {
+            llm_local_model: "qwen2.5-3b-instruct-q4_k_m.gguf".into(),
+            tier: "balanced".into(),
+            ..Default::default()
+        };
+        assert!(c.upgrade_local_model(16.0));
+        assert_eq!(c.llm_local_model, "gemma-4-E4B-it-Q4_K_M.gguf");
+        let mut c = Config {
+            llm_local_model: "qwen2.5-3b-instruct-q4_k_m.gguf".into(),
+            tier: "balanced".into(),
+            ..Default::default()
+        };
+        assert!(c.upgrade_local_model(8.0));
+        assert_eq!(c.llm_local_model, "Qwen3-4B-Instruct-2507-Q4_K_M.gguf");
+        assert_eq!(c.tier, "fast");
+        assert!(!c.upgrade_local_model(8.0));
     }
 }

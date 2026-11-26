@@ -110,9 +110,9 @@ Style: Marca,Poppins,{wm_size},&H8CFFFFFF&,&H000000FF&,&HC8000000&,&HFF000000&,-
             start: (x.start - start).max(0.0),
             end: (x.end - start).min(end - start),
             text: if cfg.sub_uppercase {
-                x.text.to_uppercase()
+                crate::transcribe::tidy(&x.text).to_uppercase()
             } else {
-                x.text.clone()
+                crate::transcribe::tidy(&x.text).to_string()
             },
         })
         .collect();

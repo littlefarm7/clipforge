@@ -148,7 +148,7 @@ fn half_size(img: &[u8], w: usize, h: usize) -> Vec<u8> {
 }
 
 /// Volume da voz por quadro de análise (RMS entre 0 e 1).
-fn audio_levels(src: &Path, start: f64, dur: f64, frames: usize) -> Vec<f64> {
+pub(crate) fn audio_levels(src: &Path, start: f64, dur: f64, frames: usize) -> Vec<f64> {
     let rate = 8000usize;
     let out = std_command(paths::ffmpeg())
         .args([

@@ -66,12 +66,44 @@ pub fn whisper_catalog() -> Vec<ModelInfo> {
 pub fn llm_catalog() -> Vec<ModelInfo> {
     vec![
         ModelInfo {
+            id: "qwen3-4b-2507",
+            name: "Qwen3 4B Instruct 2507 (Q4_K_M)",
+            file: "Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
+            url: "https://huggingface.co/unsloth/Qwen3-4B-Instruct-2507-GGUF/resolve/main/Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
+            size_mb: 2500,
+            desc: "Leve (≈4 GB de RAM). Segue instruções muito bem; Apache 2.0.",
+        },
+        ModelInfo {
+            id: "gemma4-e4b",
+            name: "Gemma 4 E4B Instruct (Q4_K_M)",
+            file: "gemma-4-E4B-it-Q4_K_M.gguf",
+            url: "https://huggingface.co/unsloth/gemma-4-E4B-it-GGUF/resolve/main/gemma-4-E4B-it-Q4_K_M.gguf",
+            size_mb: 4980,
+            desc: "Recomendado (≈7 GB de RAM). Google, 2026, ótimo em português.",
+        },
+        ModelInfo {
+            id: "qwen3.5-9b",
+            name: "Qwen3.5 9B (Q4_K_M)",
+            file: "Qwen_Qwen3.5-9B-Q4_K_M.gguf",
+            url: "https://huggingface.co/bartowski/Qwen_Qwen3.5-9B-GGUF/resolve/main/Qwen_Qwen3.5-9B-Q4_K_M.gguf",
+            size_mb: 6170,
+            desc: "Melhor qualidade (≈10 GB de RAM). Entende humor e contexto; Apache 2.0.",
+        },
+        ModelInfo {
+            id: "gemma4-12b",
+            name: "Gemma 4 12B Instruct (Q4_K_M)",
+            file: "gemma-4-12b-it-Q4_K_M.gguf",
+            url: "https://huggingface.co/unsloth/gemma-4-12b-it-GGUF/resolve/main/gemma-4-12b-it-Q4_K_M.gguf",
+            size_mb: 7120,
+            desc: "Opcional (≈12 GB de RAM). Qualidade parecida com o Qwen3.5 9B, mais lento.",
+        },
+        ModelInfo {
             id: "qwen2.5-1.5b",
             name: "Qwen 2.5 1.5B Instruct (Q4_K_M)",
             file: "qwen2.5-1.5b-instruct-q4_k_m.gguf",
             url: "https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf",
             size_mb: 1120,
-            desc: "Leve (≈2 GB de RAM). Funciona em quase qualquer PC.",
+            desc: "Antigo e muito leve (≈2 GB de RAM), para computadores bem fracos.",
         },
         ModelInfo {
             id: "qwen2.5-3b",
@@ -79,15 +111,7 @@ pub fn llm_catalog() -> Vec<ModelInfo> {
             file: "qwen2.5-3b-instruct-q4_k_m.gguf",
             url: "https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/qwen2.5-3b-instruct-q4_k_m.gguf",
             size_mb: 2100,
-            desc: "Recomendado (≈4 GB de RAM). Boa escolha de trechos.",
-        },
-        ModelInfo {
-            id: "llama3.2-3b",
-            name: "Llama 3.2 3B Instruct (Q4_K_M)",
-            file: "Llama-3.2-3B-Instruct-Q4_K_M.gguf",
-            url: "https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF/resolve/main/Llama-3.2-3B-Instruct-Q4_K_M.gguf",
-            size_mb: 2020,
-            desc: "Alternativa da Meta (≈4 GB de RAM).",
+            desc: "Modelo da versão anterior (≈4 GB de RAM).",
         },
         ModelInfo {
             id: "qwen2.5-7b",
@@ -95,9 +119,19 @@ pub fn llm_catalog() -> Vec<ModelInfo> {
             file: "Qwen2.5-7B-Instruct-Q4_K_M.gguf",
             url: "https://huggingface.co/bartowski/Qwen2.5-7B-Instruct-GGUF/resolve/main/Qwen2.5-7B-Instruct-Q4_K_M.gguf",
             size_mb: 4680,
-            desc: "Melhor qualidade (≈8 GB de RAM). Mais lento.",
+            desc: "Modelo da versão anterior (≈8 GB de RAM).",
         },
     ]
+}
+
+/// Modelos da versão anterior trocados pelos novos do mesmo nível.
+pub fn upgraded_llm(file: &str) -> Option<&'static str> {
+    match file {
+        "qwen2.5-1.5b-instruct-q4_k_m.gguf" => Some("Qwen3-4B-Instruct-2507-Q4_K_M.gguf"),
+        "qwen2.5-3b-instruct-q4_k_m.gguf" => Some("gemma-4-E4B-it-Q4_K_M.gguf"),
+        "Qwen2.5-7B-Instruct-Q4_K_M.gguf" => Some("Qwen_Qwen3.5-9B-Q4_K_M.gguf"),
+        _ => None,
+    }
 }
 
 /// Nível de qualidade do modo "No meu computador": um par de modelos (transcrição + IA).
@@ -124,10 +158,10 @@ pub fn tiers() -> Vec<Tier> {
             desc: "Funciona em qualquer computador. Cortes bons, mais rápido.",
             whisper_id: "base",
             whisper_file: "ggml-base.bin",
-            llm_id: "qwen2.5-1.5b",
-            llm_file: "qwen2.5-1.5b-instruct-q4_k_m.gguf",
-            size_mb: 1262,
-            min_ram_gb: 4.0,
+            llm_id: "qwen3-4b-2507",
+            llm_file: "Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
+            size_mb: 2642,
+            min_ram_gb: 6.0,
         },
         Tier {
             id: "balanced",
@@ -135,10 +169,10 @@ pub fn tiers() -> Vec<Tier> {
             desc: "Ótima escolha de cortes e legendas precisas.",
             whisper_id: "small",
             whisper_file: "ggml-small.bin",
-            llm_id: "qwen2.5-3b",
-            llm_file: "qwen2.5-3b-instruct-q4_k_m.gguf",
-            size_mb: 2566,
-            min_ram_gb: 8.0,
+            llm_id: "gemma4-e4b",
+            llm_file: "gemma-4-E4B-it-Q4_K_M.gguf",
+            size_mb: 5446,
+            min_ram_gb: 10.0,
         },
         Tier {
             id: "best",
@@ -146,9 +180,9 @@ pub fn tiers() -> Vec<Tier> {
             desc: "Os melhores cortes. Precisa de um computador potente.",
             whisper_id: "large-v3-turbo-q5_0",
             whisper_file: "ggml-large-v3-turbo-q5_0.bin",
-            llm_id: "qwen2.5-7b",
-            llm_file: "Qwen2.5-7B-Instruct-Q4_K_M.gguf",
-            size_mb: 5227,
+            llm_id: "qwen3.5-9b",
+            llm_file: "Qwen_Qwen3.5-9B-Q4_K_M.gguf",
+            size_mb: 6717,
             min_ram_gb: 16.0,
         },
     ]
@@ -161,7 +195,7 @@ pub fn recommended_tier(ram_gb: f64) -> &'static str {
         "balanced"
     } else if ram_gb >= 15.0 {
         "best"
-    } else if ram_gb >= 7.5 {
+    } else if ram_gb >= 9.5 {
         "balanced"
     } else {
         "fast"

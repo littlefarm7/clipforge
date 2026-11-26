@@ -133,6 +133,9 @@ impl Llm {
         }
         if self.is_local {
             body["max_tokens"] = json!(LOCAL_RESPONSE_TOKENS);
+            // Modelos que "pensam" antes de responder (Qwen3.5, Gemma 4): resposta direta,
+            // bem mais rápida no computador
+            body["chat_template_kwargs"] = json!({"enable_thinking": false});
         }
         let mut tries = 0;
         loop {

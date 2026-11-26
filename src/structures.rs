@@ -51,6 +51,7 @@ pub const ALL: &[Info] = &[
             "emphasis_zoom",
             "speaker_colors",
             "censor",
+            "sfx",
             "music",
         ],
     },
@@ -91,7 +92,7 @@ pub const ALL: &[Info] = &[
             "Na ação, a webcam vira uma janelinha no canto do jogo",
             "Título nos primeiros 3 segundos e legenda de uma palavra gigante",
         ],
-        controls: &["title", "name_tag", "cut_pauses", "censor", "music"],
+        controls: &["title", "name_tag", "cut_pauses", "censor", "sfx", "music"],
     },
     Info {
         id: "cinema",
@@ -104,7 +105,7 @@ pub const ALL: &[Info] = &[
             "Legenda empilhada: uma palavra por linha, somando a frase",
             "Palavras-chave em azul-claro",
         ],
-        controls: &["grade", "emphasis_zoom", "cut_pauses", "music"],
+        controls: &["grade", "emphasis_zoom", "cut_pauses", "sfx", "music"],
     },
     Info {
         id: "meme",
@@ -129,7 +130,7 @@ pub const ALL: &[Info] = &[
             "Tela preta rápida entre um momento e outro",
             "Música de fundo que abaixa quando alguém fala",
         ],
-        controls: &["list_title", "items", "captions", "music"],
+        controls: &["list_title", "items", "captions", "sfx", "music"],
     },
 ];
 
@@ -161,6 +162,8 @@ pub struct StyleOpts {
     pub grade: bool,
     /// Legendas da fala
     pub captions: bool,
+    /// Efeitos sonoros (whoosh) nos zooms e transições
+    pub sfx: bool,
     /// Nome mostrado embaixo da webcam
     pub name_tag: String,
     /// Título da lista (Top Momentos)
@@ -182,6 +185,7 @@ impl Default for StyleOpts {
             title: true,
             grade: true,
             captions: true,
+            sfx: true,
             name_tag: String::new(),
             list_title: String::new(),
             items: 4,
@@ -256,6 +260,9 @@ pub fn effective(id: &str, saved: &StyleOpts) -> StyleOpts {
     }
     if has("captions") {
         o.captions = saved.captions;
+    }
+    if has("sfx") {
+        o.sfx = saved.sfx;
     }
     if has("name_tag") {
         o.name_tag = saved.name_tag.clone();

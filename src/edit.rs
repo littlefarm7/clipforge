@@ -266,8 +266,11 @@ impl Faces {
 struct ShotRules {
     min_shot: f64,
     base_zoom: f64,
+    /// Fala longa sem frase forte: reação no meio a partir desta duração
     react_min: f64,
     react_len: f64,
+    /// Fala longa da mesma pessoa vira vários planos (com zoom alternado) a cada ~N s
+    split_every: Option<f64>,
 }
 
 fn shot_rules(structure: &str) -> ShotRules {
@@ -277,36 +280,51 @@ fn shot_rules(structure: &str) -> ShotRules {
             base_zoom: 1.0,
             react_min: 6.0,
             react_len: 1.6,
+            split_every: None,
         },
         "cinema" => ShotRules {
             min_shot: 0.9,
             base_zoom: 1.35,
             react_min: 99.0,
             react_len: 0.0,
+            split_every: Some(3.6),
         },
         "top" => ShotRules {
             min_shot: 1.0,
             base_zoom: 1.06,
             react_min: 99.0,
             react_len: 0.0,
+            split_every: Some(3.0),
         },
         _ => ShotRules {
-            min_shot: 0.7,
+            min_shot: 0.55,
             base_zoom: 1.0,
             react_min: 4.0,
             react_len: 0.9,
+            split_every: Some(2.6),
         },
     }
 }
 
-/// Planos de um trecho: segue quem fala, corta nos cortes do vídeo original e, em falas
-/// longas, mostra a reação de quem escuta.
+/// Fim de uma "frase forte": pergunta, exclamação ou risada escrita.
+fn punchline(text: &str) -> bool {
+    let t = text.to_lowercase();
+    t.ends_with(['?', '!']) || t.contains("kkk") || t.contains("haha") || t.contains("rsrs")
+}
+
+/// Quando a câmera troca de pessoa, o corte vem um pouco antes da fala (como num J-cut):
+/// o olho chega em quem vai falar junto com a voz.
+const LEAD: f64 = 0.15;
+
+/// Planos de um trecho: segue quem fala, corta nos cortes do vídeo original, mostra a reação
+/// de quem escuta depois das frases fortes e divide falas longas em planos com zoom alternado.
 fn part_shots(
     pi: usize,
     p: &Part,
     faces: Option<&Faces>,
     rules: &ShotRules,
     reactions: bool,
+    words: &[(f64, f64, String)],
 ) -> Vec<Shot> {
     let center = View::Crop {
         cx: 0.5,
@@ -357,6 +375,16 @@ fn part_shots(
             _ => merged.push(r),
         }
     }
+    // Troca de pessoa: a imagem chega um pouco antes da voz
+    for i in 1..merged.len() {
+        if !merged[i].3 && merged[i].2 != merged[i - 1].2 {
+            let lead = LEAD.min((merged[i - 1].1 - merged[i - 1].0) - rules.min_shot * 0.5);
+            if lead > 0.0 {
+                merged[i - 1].1 -= lead;
+                merged[i].0 -= lead;
+            }
+        }
+    }
     // Sem rosto num plano: mantém o enquadramento anterior (ou o rosto principal)
     let main = f.main_face().map(|(cx, cy, _)| View::Crop {
         cx,
@@ -365,6 +393,7 @@ fn part_shots(
     });
     let mut last_view = main.unwrap_or(center);
     let mut shots: Vec<Shot> = Vec::new();
+    let mut last_reaction = f64::NEG_INFINITY;
     for (a, b, who, _) in merged {
         let fallback = last_view;
         let view_of = |track: Option<usize>, a: f64, b: f64| match track
@@ -378,38 +407,82 @@ fn part_shots(
             },
             None => fallback,
         };
+        let speaker_view = view_of(who, a, b);
         let listener = who.and_then(|w| f.most_seen(a, b, Some(w)));
-        if reactions && b - a >= rules.react_min && listener.is_some() {
-            // Reação no meio da fala longa
-            let r0 = a + (b - a) * 0.55;
-            let r1 = (r0 + rules.react_len).min(b - 0.5);
+        // Momentos de reação: logo depois de uma frase forte (ou no meio de uma fala longa)
+        let mut reacts: Vec<(f64, f64)> = Vec::new();
+        if reactions && rules.react_len > 0.0 && listener.is_some() {
+            for (_, we, text) in words.iter().filter(|(ws, _, _)| *ws >= a && *ws < b) {
+                let r0 = we + 0.05;
+                let r1 = r0 + rules.react_len;
+                if punchline(text) && r0 >= a + 0.8 && r1 <= b - 0.4 && r0 - last_reaction >= 3.0 {
+                    reacts.push((r0, r1));
+                    last_reaction = r1;
+                }
+            }
+            if reacts.is_empty() && b - a >= rules.react_min && a - last_reaction >= 3.0 {
+                let r0 = a + (b - a) * 0.55;
+                let r1 = (r0 + rules.react_len).min(b - 0.5);
+                reacts.push((r0, r1));
+                last_reaction = r1;
+            }
+        }
+        // Pedaços de quem fala entre as reações
+        let mut cursor = a;
+        let mut pieces: Vec<(f64, f64, bool)> = Vec::new();
+        for (r0, r1) in &reacts {
+            pieces.push((cursor, *r0, false));
+            pieces.push((*r0, *r1, true));
+            cursor = *r1;
+        }
+        pieces.push((cursor, b, false));
+        for (x0, x1, is_react) in pieces {
+            if x1 - x0 < 0.05 {
+                continue;
+            }
+            if is_react {
+                shots.push(Shot {
+                    part: pi,
+                    a: x0,
+                    b: x1,
+                    view: view_of(listener, x0, x1),
+                    reaction: true,
+                });
+                continue;
+            }
+            // Fala longa: novos planos nos intervalos entre palavras, a cada ~split_every s
+            let mut start = x0;
+            if let Some(every) = rules.split_every {
+                let gaps: Vec<f64> = words
+                    .windows(2)
+                    .filter(|w| w[0].1 > x0 && w[1].0 < x1)
+                    .map(|w| (w[0].1 + w[1].0) / 2.0)
+                    .collect();
+                while x1 - start > every * 1.4 {
+                    let target = start + every;
+                    let Some(cut) = gaps
+                        .iter()
+                        .copied()
+                        .filter(|g| *g > start + every * 0.6 && *g < x1 - every * 0.5)
+                        .min_by(|p, q| (p - target).abs().total_cmp(&(q - target).abs()))
+                    else {
+                        break;
+                    };
+                    shots.push(Shot {
+                        part: pi,
+                        a: start,
+                        b: cut,
+                        view: speaker_view,
+                        reaction: false,
+                    });
+                    start = cut;
+                }
+            }
             shots.push(Shot {
                 part: pi,
-                a,
-                b: r0,
-                view: view_of(who, a, b),
-                reaction: false,
-            });
-            shots.push(Shot {
-                part: pi,
-                a: r0,
-                b: r1,
-                view: view_of(listener, r0, r1),
-                reaction: true,
-            });
-            shots.push(Shot {
-                part: pi,
-                a: r1,
-                b,
-                view: view_of(who, a, b),
-                reaction: false,
-            });
-        } else {
-            shots.push(Shot {
-                part: pi,
-                a,
-                b,
-                view: view_of(who, a, b),
+                a: start,
+                b: x1,
+                view: speaker_view,
                 reaction: false,
             });
         }
@@ -744,6 +817,78 @@ fn enable_expr(spans: &[(f64, f64)]) -> String {
         .join("+")
 }
 
+/// Muletas de hesitação que um editor tira do corte.
+const FILLERS: &[&str] = &[
+    "ahn", "ahm", "hã", "han", "hum", "humm", "hmm", "hm", "mm", "mmm", "éé", "ééé", "eee", "uh",
+    "um", "uhm", "erm",
+];
+
+/// Tira muletas ("ahn", "hum") e gaguejadas ("eu eu eu" vira "eu").
+pub fn clean_words(words: &[(f64, f64, String)]) -> Vec<(f64, f64, String)> {
+    let plain = |t: &str| {
+        t.chars()
+            .filter(|c| c.is_alphanumeric())
+            .collect::<String>()
+            .to_lowercase()
+    };
+    let mut out: Vec<(f64, f64, String)> = Vec::with_capacity(words.len());
+    for (i, w) in words.iter().enumerate() {
+        let p = plain(&w.2);
+        if FILLERS.contains(&p.as_str()) && !w.2.ends_with(['?', '!']) {
+            continue;
+        }
+        // Gaguejada: a mesma palavra logo em seguida (fica só a última)
+        if let Some(n) = words.get(i + 1)
+            && !p.is_empty()
+            && plain(&n.2) == p
+            && n.0 - w.1 < 0.5
+            && !w.2.ends_with(['.', '?', '!', ','])
+        {
+            continue;
+        }
+        out.push(w.clone());
+    }
+    out
+}
+
+/// Quanto o clipe pode continuar depois da última fala porque ainda há som alto (risada,
+/// reação), até 2,5 s e sem invadir a próxima fala.
+async fn laugh_tail(src: &std::path::Path, end: f64, next_word: f64) -> f64 {
+    let src = src.to_path_buf();
+    let look = 3.0;
+    let start = (end - 1.5).max(0.0);
+    let lv = tokio::task::spawn_blocking(move || {
+        face::audio_levels(
+            &src,
+            start,
+            look + 1.5,
+            ((look + 1.5) * ANALYSIS_FPS) as usize,
+        )
+    })
+    .await
+    .unwrap_or_default();
+    let k = ((end - start) * ANALYSIS_FPS).round() as usize;
+    if lv.len() <= k + 2 {
+        return 0.0;
+    }
+    // Volume de referência: a fala logo antes do fim
+    let mut speech: Vec<f64> = lv[..k].to_vec();
+    speech.sort_by(|a, b| a.total_cmp(b));
+    let reference = speech.get(speech.len() * 3 / 4).copied().unwrap_or(0.0);
+    let thresh = (reference * 0.35).max(0.015);
+    let max_frames = ((next_word - end - 0.1).clamp(0.0, 2.5) * ANALYSIS_FPS) as usize;
+    let loud = lv[k..]
+        .iter()
+        .take(max_frames)
+        .take_while(|v| **v > thresh)
+        .count();
+    if loud < 4 {
+        0.0
+    } else {
+        (loud as f64 / ANALYSIS_FPS + 0.2).min(2.5)
+    }
+}
+
 /// Opção do ffmpeg que lê os filtros de um arquivo: o ffmpeg 7.1+ usa "-/filter_complex"
 /// e as versões novas não têm mais "-filter_complex_script".
 fn graph_file_flag() -> &'static str {
@@ -791,12 +936,33 @@ pub async fn render(
     } else {
         vec![(job.start, job.end, String::new())]
     };
-    let word_spans: Vec<(f64, f64)> = job
+    // Palavras do clipe; com "cortar pausas", saem as muletas ("ahn", "hum") e as gaguejadas
+    let all_words: Vec<(f64, f64, String)> = job
         .transcript
         .words
         .iter()
-        .map(|w| (w.start, w.end))
+        .map(|w| (w.start, w.end, crate::transcribe::tidy(&w.text).to_string()))
+        .filter(|w| !w.2.is_empty())
         .collect();
+    let abs_words: Vec<(f64, f64, String)> = if opts.cut_pauses {
+        clean_words(&all_words)
+    } else {
+        all_words
+    };
+    let word_spans: Vec<(f64, f64)> = abs_words.iter().map(|w| (w.0, w.1)).collect();
+    // O clipe termina na risada: depois da última fala, segue enquanto houver som alto sem fala
+    let mut moments = moments;
+    if matches!(st, "turbo" | "conversa" | "top" | "cinema") {
+        for m in moments.iter_mut() {
+            let next_word = word_spans
+                .iter()
+                .map(|w| w.0)
+                .find(|s0| *s0 > m.1 + 0.05)
+                .unwrap_or(f64::MAX);
+            let ext = laugh_tail(job.src, m.1, next_word).await;
+            m.1 += ext;
+        }
+    }
     let (max_gap, pad) = if st == "conversa" {
         (1.1, 0.25)
     } else {
@@ -867,7 +1033,8 @@ pub async fn render(
                 p,
                 faces[p.moment].as_ref(),
                 &rules,
-                opts.reactions && rules.react_min < 90.0,
+                opts.reactions,
+                &abs_words,
             ));
         }
     }
@@ -878,12 +1045,6 @@ pub async fn render(
         s.b = p.a + align(s.b - p.a, fps);
     }
     shots.retain(|s| s.b - s.a >= 0.5 / fps);
-    let abs_words: Vec<(f64, f64, String)> = job
-        .transcript
-        .words
-        .iter()
-        .map(|w| (w.start, w.end, w.text.clone()))
-        .collect();
     if opts.emphasis_zoom && matches!(st, "turbo" | "cinema") {
         emphasis(&mut shots, &abs_words, rules.base_zoom);
     }
@@ -914,22 +1075,20 @@ pub async fn render(
             .and_then(|f| f.speaker_at(abs))
         // Pessoas de momentos diferentes não se misturam nas cores
     };
-    let owords: Vec<OWord> = job
-        .transcript
-        .words
+    // Legendas: as palavras limpas (sem muletas), aparecendo um instante antes da fala
+    let owords: Vec<OWord> = abs_words
         .iter()
-        .filter_map(|w| {
-            let mid = (w.start + w.end) / 2.0;
-            let s = to_out(w.start.max(mid - 0.05)).or_else(|| to_out(mid))?;
-            let len = (w.end - w.start).clamp(0.05, 2.0);
+        .filter_map(|(ws, we, text)| {
+            let mid = (ws + we) / 2.0;
+            let s = to_out(ws.max(mid - 0.05)).or_else(|| to_out(mid))?;
+            let len = (we - ws).clamp(0.05, 2.0);
             Some(OWord {
-                start: s,
+                start: (s - 0.05).max(0.0),
                 end: (s + len).min(total),
-                text: w.text.trim().to_string(),
+                text: text.clone(),
                 speaker: speaker_of(mid),
             })
         })
-        .filter(|w| !w.text.is_empty())
         .collect();
 
     // ------------------------------------------------------------------
@@ -1033,10 +1192,65 @@ afade=t=in:d={fade:.3},afade=t=out:st={:.4}:d={fade:.3}[p{pi}];",
     }
     let _ = writeln!(
         g,
-        "{}concat=n={}:v=0:a=1[acat];",
+        "{}concat=n={}:v=0:a=1[acat_raw];",
         alabels.concat(),
         alabels.len()
     );
+    // Efeitos sonoros: whoosh nas aproximações fortes e nas transições
+    let shot_out = |s: &Shot| out_start[s.part] + (s.a - parts[s.part].a);
+    let mut fx_times: Vec<f64> = Vec::new();
+    if opts.sfx {
+        let base = rules.base_zoom;
+        for s in &shots {
+            if let View::Crop { zoom, .. } = s.view
+                && zoom >= base * 1.25
+            {
+                fx_times.push(shot_out(s));
+            }
+        }
+        if st == "top" {
+            for (i, p) in parts.iter().enumerate() {
+                if i > 0 && p.moment != parts[i - 1].moment {
+                    fx_times.push(out_start[i] - SEP);
+                }
+            }
+        }
+        if st == "react_destaque" {
+            for (a, b) in talk_spans(&owords, total) {
+                fx_times.push(a);
+                fx_times.push(b);
+            }
+        }
+    }
+    fx_times.sort_by(|a, b| a.total_cmp(b));
+    let mut fx: Vec<f64> = Vec::new();
+    for t in fx_times {
+        let t = (t - 0.12).max(0.0);
+        if t < total - 0.3 && fx.last().is_none_or(|l| t - l >= 1.0) && fx.len() < 16 {
+            fx.push(t);
+        }
+    }
+    if fx.is_empty() {
+        let _ = writeln!(g, "[acat_raw]anull[acat];");
+    } else {
+        let mut labels = String::new();
+        for (i, t) in fx.iter().enumerate() {
+            let ms = (t * 1000.0).round() as u64;
+            let _ = writeln!(
+                g,
+                "anoisesrc=d=0.5:c=pink:r=48000:a=0.35,highpass=f=350,lowpass=f=4500,\
+afade=t=in:d=0.28:curve=qsin,afade=t=out:st=0.3:d=0.2,pan=stereo|c0=c0|c1=c0,\
+adelay={ms}|{ms}[fx{i}];"
+            );
+            labels.push_str(&format!("[fx{i}]"));
+        }
+        let _ = writeln!(
+            g,
+            "{labels}amix=inputs={}:normalize=0,volume=0.45[sfx];\
+[acat_raw][sfx]amix=inputs=2:duration=first:normalize=0[acat];",
+            fx.len()
+        );
+    }
 
     // Layout e legendas de cada estrutura
     let sc = Scene {
@@ -1374,6 +1588,22 @@ afade=t=out:st={:.3}:d=0.8,loudnorm=I={lufs}:TP=-1.0:LRA=9,aresample=48000[aout]
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn tira_muletas_e_gaguejadas() {
+        let w = |a: f64, t: &str| (a, a + 0.2, t.to_string());
+        let words = vec![
+            w(0.0, "ahn,"),
+            w(0.3, "eu"),
+            w(0.55, "eu"),
+            w(0.8, "comprei"),
+            w(1.1, "hum"),
+            w(1.4, "isso?"),
+        ];
+        let out: Vec<String> = clean_words(&words).into_iter().map(|x| x.2).collect();
+        assert_eq!(out, vec!["eu", "comprei", "isso?"]);
+        assert!(punchline("Sério?") && punchline("kkkkk") && !punchline("então"));
+    }
 
     #[test]
     fn remove_pausas_entre_falas() {

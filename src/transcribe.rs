@@ -85,8 +85,14 @@ impl Transcript {
     }
 }
 
+/// Texto de uma palavra sem os travessões que o Whisper cola na troca de quem fala
+/// ("isso?-", "-Eu"). Hífens no meio da palavra ficam ("guarda-chuva").
+pub fn tidy(t: &str) -> &str {
+    t.trim().trim_matches(['-', '–', '—']).trim()
+}
+
 fn clean_word(t: &str) -> Option<String> {
-    let s = t.trim();
+    let s = tidy(t);
     if s.is_empty()
         || (s.starts_with('[') && s.ends_with(']'))
         || (s.starts_with('(') && s.ends_with(')'))

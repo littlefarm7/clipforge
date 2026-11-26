@@ -50,7 +50,12 @@ O app não tem janela própria. A interface abre no navegador em `http://127.0.0
    - Local: whisper.cpp (grátis, offline).
    - API: qualquer serviço compatível com OpenAI (Groq gratuito, OpenAI).
 3. **Escolhe os melhores trechos** e sugere um título para postar cada um:
-   - IA local: llama.cpp com um modelo GGUF baixado pelo app (Qwen 2.5, Llama 3.2…).
+   - IA local: llama.cpp com um modelo GGUF baixado pelo app:
+     - **Leve:** Qwen3 4B Instruct 2507;
+     - **Equilibrado (padrão):** Gemma 4 E4B, do Google;
+     - **Máxima qualidade:** Qwen3.5 9B;
+     - opcional: Gemma 4 12B.
+     A IA segue regras de editor: começa no gancho, um assunto por clipe e termina no punchline ou na risada.
    - API de IA: Groq, Google Gemini, OpenRouter, OpenAI, Ollama, LM Studio ou outra compatível com OpenAI.
    - Sem IA: uma heurística simples, sem modelo.
 4. **Edita** cada clipe na **estrutura de edição** escolhida:
@@ -58,7 +63,7 @@ O app não tem janela própria. A interface abre no navegador em `http://127.0.0
 | Estrutura | Para que serve | O que a edição faz |
 |---|---|---|
 | **Clássico** | Qualquer vídeo | Segue quem fala, junta duas pessoas ou divide a tela; legenda karaokê |
-| **Podcast Turbo** | Podcasts e entrevistas | Remove pausas, corta para quem fala, planos de reação, zoom alternado e nas frases fortes, legenda em frases com uma cor por pessoa, palavrões censurados (c4r4lh0), áudio alto |
+| **Podcast Turbo** | Podcasts e entrevistas | Remove pausas, muletas ("ahn", "hum") e gaguejadas; a câmera chega em quem vai falar junto com a voz; reação depois das frases fortes; falas longas viram planos com zoom alternado; whoosh nos zooms; termina na risada; legenda em frases com uma cor por pessoa; palavrões censurados (c4r4lh0) |
 | **Conversa** | Bate-papo e humor | Mantém as pausas, segura a câmera em quem ri, legenda de frase inteira alinhada à esquerda |
 | **React Dividido** | Lives com webcam | Acha a caixa da webcam, coloca em cima; jogo embaixo; título fixo na emenda; karaokê de 2–3 palavras |
 | **React Destaque** | Lives com reações | Fundo desfocado, jogo numa faixa; webcam grande na fala e janelinha na ação; título nos 3 primeiros segundos; uma palavra gigante por vez |
@@ -97,7 +102,7 @@ O KERF cuida sozinho das partes técnicas:
 - **Para ajustar um clipe:** clique em **Ajustar**. Dá para mudar o início, o fim, o título, a estrutura e o texto do meme, e clicar em **Salvar e gerar de novo**.
 - **Para baixar tudo:** use **Baixar todos**.
 - **Música de fundo:** envie suas músicas em **Ajustes → Músicas de fundo** (ou pelo botão **Enviar** na estrutura). Use músicas que você tem direito de usar.
-- **Tema claro ou escuro:** botão **◐** no topo. Por padrão, segue o sistema.
+- **Temas:** em **Ajustes → Aparência**, escolha Neo-brutalista (preto, cinza e branco), Nord brutal ou Skeuomórfico, cada um com modo claro, escuro ou automático. O botão **◐** no topo troca entre claro e escuro.
 - **Legendas do Clássico:** estilo, posição e tamanho em **Ajustes**.
 - **Marca d'água:** em **Ajustes → Marca d'água**, digite o @ do perfil e escolha a posição.
 - **Quem entende de tecnologia:** encontra outros serviços de IA, a memória de contexto e os argumentos do yt-dlp em **Ajustes → Opções avançadas**.
