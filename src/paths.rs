@@ -9,13 +9,36 @@ fn home() -> PathBuf {
 pub fn data_dir() -> PathBuf {
     dirs::data_dir()
         .unwrap_or_else(|| home().join(".local/share"))
-        .join("clipforge")
+        .join("kerf")
+}
+
+/// O app se chamava ClipForge: na primeira vez, as pastas antigas (projetos, modelos e
+/// ajustes) passam a ser do KERF.
+pub fn migrate_old_dirs() {
+    let pairs = [
+        (
+            dirs::data_dir().unwrap_or_else(|| home().join(".local/share")),
+            "clipforge",
+            "kerf",
+        ),
+        (
+            dirs::config_dir().unwrap_or_else(|| home().join(".config")),
+            "clipforge",
+            "kerf",
+        ),
+    ];
+    for (base, old, new) in pairs {
+        let (o, n) = (base.join(old), base.join(new));
+        if o.is_dir() && !n.exists() {
+            let _ = std::fs::rename(&o, &n);
+        }
+    }
 }
 
 pub fn config_path() -> PathBuf {
     dirs::config_dir()
         .unwrap_or_else(|| home().join(".config"))
-        .join("clipforge")
+        .join("kerf")
         .join("config.json")
 }
 
@@ -36,13 +59,18 @@ pub fn user_bin_dir() -> PathBuf {
     data_dir().join("bin")
 }
 
+/// Biblioteca de músicas de fundo escolhidas pela pessoa.
+pub fn music_dir() -> PathBuf {
+    data_dir().join("music")
+}
+
 pub fn fonts_dir() -> PathBuf {
     data_dir().join("fonts")
 }
 
 /// Pasta com os binários embutidos (AppImage: definida pelo AppRun; Windows/macOS: pasta do executável).
 pub fn bundled_bin_dir() -> Option<PathBuf> {
-    if let Ok(d) = std::env::var("CLIPFORGE_BIN_DIR") {
+    if let Ok(d) = std::env::var("KERF_BIN_DIR").or_else(|_| std::env::var("CLIPFORGE_BIN_DIR")) {
         return Some(PathBuf::from(d));
     }
     std::env::current_exe()

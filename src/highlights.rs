@@ -15,6 +15,10 @@ pub struct Candidate {
     pub title: String,
     pub score: u32,
     pub reason: String,
+    /// Texto de contexto do meme (estrutura "meme")
+    pub context: String,
+    /// Rótulo curto do momento (estrutura "top")
+    pub label: String,
 }
 
 const SYSTEM: &str = "Você é um editor profissional de vídeos curtos (TikTok, Reels, YouTube Shorts). \
@@ -54,12 +58,42 @@ devolva {n} clipes, ordenando pela qualidade com a nota (\"score\"). Regras:\n\
 - \"title\": título viral em forma de gancho (máx. 55 caracteres), que desperte curiosidade sobre o assunto do clipe, \
 no MESMO idioma da transcrição. Ex.: \"Ninguém te conta isso sobre dinheiro\", \"O erro que quase acabou com tudo\". Sem hashtags nem emojis.\n\
 - \"score\": nota de 0 a 100 do potencial viral.\n\
-- \"reason\": uma frase curta explicando por que o trecho é bom.\n{extra}\n\
+- \"reason\": uma frase curta explicando por que o trecho é bom.\n{style}{extra}\n\
 Responda só com o JSON, neste formato:\n\
-{{\"clips\":[{{\"start\":12,\"end\":49,\"title\":\"...\",\"score\":87,\"reason\":\"...\"}}]}}",
+{{\"clips\":[{{\"start\":12,\"end\":49,\"title\":\"...\",\"score\":87,\"reason\":\"...\"{example}}}]}}",
         min = cfg.min_len,
         max = cfg.max_len,
+        style = style_rules(&cfg.structure),
+        example = match cfg.structure.as_str() {
+            "meme" => ",\"context\":\"...\"",
+            "top" => ",\"label\":\"...\"",
+            _ => "",
+        },
     )
+}
+
+/// Regras extras do pedido à IA conforme a estrutura de edição.
+fn style_rules(structure: &str) -> &'static str {
+    match structure {
+        "meme" => {
+            "- Prefira momentos engraçados, absurdos ou constrangedores que funcionem como meme.\n\
+- \"context\": o texto de cima do meme, que dá contexto à cena e faz a piada funcionar, no MESMO idioma \
+da transcrição, com no máximo 90 caracteres. Use quebras de linha (\\n) como nos memes. \
+Ex.: \"Minha mãe: você tem que andar com amigos que te apoiam\\nMeus amigos:\", \
+\"Eu explicando pro meu chefe por que me atrasei:\". Sem hashtags nem emojis.\n"
+        }
+        "top" => {
+            "- Cada clipe é um MOMENTO curto e marcante (uma reação, uma frase, uma piada), que será \
+juntado a outros numa lista de melhores momentos.\n\
+- \"label\": rótulo de 2 a 4 palavras que resume o momento, como numa lista \
+(ex.: \"Não sou eu\", \"Que demônio é esse\", \"Cabelo curto\"). Sem números nem emojis.\n"
+        }
+        "turbo" | "conversa" => {
+            "- Comece o clipe numa pergunta, provocação ou frase forte (gancho), \
+nunca numa apresentação.\n"
+        }
+        _ => "",
+    }
 }
 
 fn parse_time(v: &Value) -> Option<f64> {
@@ -115,6 +149,23 @@ fn parse_candidates(v: &Value) -> Vec<Candidate> {
                     .unwrap_or("")
                     .trim()
                     .to_string(),
+                context: c
+                    .get("context")
+                    .and_then(|t| t.as_str())
+                    .unwrap_or("")
+                    .replace("\\n", "\n")
+                    .trim()
+                    .chars()
+                    .take(140)
+                    .collect(),
+                label: c
+                    .get("label")
+                    .and_then(|t| t.as_str())
+                    .unwrap_or("")
+                    .trim()
+                    .chars()
+                    .take(40)
+                    .collect(),
             })
         })
         .filter(|c| c.end > c.start)
@@ -462,6 +513,20 @@ pub async fn find(
         if c.title.is_empty() {
             c.title = fallback_title(t, c);
         }
+        if c.label.is_empty() {
+            // Rótulo da lista: as primeiras palavras do momento
+            let text = t.text_between(c.start, c.end);
+            c.label = text
+                .split_whitespace()
+                .take(3)
+                .collect::<Vec<_>>()
+                .join(" ")
+                .trim_end_matches([',', '.', ';', ':', '?', '!'])
+                .to_string();
+        }
+        if c.context.is_empty() {
+            c.context = c.title.clone();
+        }
     }
     chosen.sort_by_key(|c| std::cmp::Reverse(c.score));
     progress(1.0, "Trechos escolhidos");
@@ -526,6 +591,8 @@ fn heuristic(cfg: &Config, segs: &[Segment], max: usize) -> Vec<Candidate> {
             title: String::new(),
             score: score.clamp(1.0, 99.0) as u32,
             reason: "Escolhido automaticamente (sem IA) pela densidade e ritmo da fala.".into(),
+            context: String::new(),
+            label: String::new(),
         });
     }
     pick(out, max * 4)

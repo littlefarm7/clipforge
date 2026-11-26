@@ -117,6 +117,7 @@ pub struct ProbeInfo {
     /// Quadros por segundo do vídeo (0 se desconhecido)
     pub fps: f64,
     pub has_video: bool,
+    pub has_audio: bool,
 }
 
 pub async fn probe(path: &std::path::Path) -> Result<ProbeInfo> {
@@ -141,8 +142,10 @@ pub async fn probe(path: &std::path::Path) -> Result<ProbeInfo> {
         height: 0,
         fps: 0.0,
         has_video: false,
+        has_audio: false,
     };
     if let Some(streams) = v["streams"].as_array() {
+        info.has_audio = streams.iter().any(|s| s["codec_type"] == "audio");
         for s in streams {
             if s["codec_type"] == "video" && s["disposition"]["attached_pic"].as_i64() != Some(1) {
                 let (mut w, mut h) = (

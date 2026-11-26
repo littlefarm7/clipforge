@@ -10,7 +10,7 @@ use std::fmt::Write as _;
 use std::path::Path;
 use tokio_util::sync::CancellationToken;
 
-fn ass_color(hex: &str) -> String {
+pub(crate) fn ass_color(hex: &str) -> String {
     let h = hex.trim().trim_start_matches('#');
     let (r, g, b) = if h.len() == 6 {
         (&h[0..2], &h[2..4], &h[4..6])
@@ -25,7 +25,7 @@ fn ass_color(hex: &str) -> String {
     )
 }
 
-fn ass_time(t: f64) -> String {
+pub(crate) fn ass_time(t: f64) -> String {
     let t = t.max(0.0);
     let cs = (t * 100.0).round() as u64;
     format!(
@@ -37,7 +37,7 @@ fn ass_time(t: f64) -> String {
     )
 }
 
-fn ass_escape(s: &str) -> String {
+pub(crate) fn ass_escape(s: &str) -> String {
     s.replace('\\', "＼").replace('{', "(").replace('}', ")")
 }
 
@@ -180,7 +180,89 @@ Style: Marca,Poppins,{wm_size},&H8CFFFFFF&,&H000000FF&,&HC8000000&,&HFF000000&,-
     s
 }
 
-fn quote_filter_path(p: &Path) -> String {
+/// Codificação do vídeo final (qualidade, cores BT.709, fluidez).
+pub(crate) fn video_args(cfg: &Config, fps: f64) -> Vec<String> {
+    let mut a: Vec<&str> = if cfg.quality == "720" {
+        // "Mais rápida": prioriza o tempo de renderização
+        vec!["-c:v", "libx264", "-preset", "veryfast", "-crf", "21"]
+    } else {
+        // Máxima nitidez: compressão cuidadosa, qualidade visual próxima do original
+        vec![
+            "-c:v",
+            "libx264",
+            "-preset",
+            "medium",
+            "-crf",
+            "17",
+            "-profile:v",
+            "high",
+            "-level:v",
+            "4.2",
+            "-bf",
+            "3",
+            "-aq-mode",
+            "3",
+        ]
+    };
+    // Cores no padrão de vídeo HD, para não ficarem lavadas no celular
+    a.extend([
+        "-pix_fmt",
+        "yuv420p",
+        "-colorspace",
+        "bt709",
+        "-color_primaries",
+        "bt709",
+        "-color_trc",
+        "bt709",
+        "-color_range",
+        "tv",
+    ]);
+    let mut v: Vec<String> = a.into_iter().map(String::from).collect();
+    v.extend([
+        "-r".into(),
+        fps.to_string(),
+        "-g".into(),
+        (fps * 2.0).to_string(),
+    ]);
+    v
+}
+
+/// Quadros por segundo do clipe: 60 quando o original tiver, senão 30.
+pub(crate) fn output_fps(cfg: &Config, info: &ProbeInfo) -> f64 {
+    if cfg.quality != "720" && info.fps >= 47.0 {
+        60.0
+    } else {
+        30.0
+    }
+}
+
+/// Gera a miniatura do clipe (um quadro perto do começo).
+pub(crate) async fn thumbnail(work: &Path, name: &str, dur: f64) {
+    let mut c = crate::proc::command(paths::ffmpeg());
+    c.current_dir(work);
+    c.args([
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-y",
+        "-ss",
+        &format!("{:.2}", (dur * 0.3).min(3.0)),
+        "-i",
+        &format!("{name}.mp4"),
+    ]);
+    c.args([
+        "-frames:v",
+        "1",
+        "-vf",
+        "scale=360:-2",
+        "-q:v",
+        "4",
+        &format!("{name}.jpg"),
+    ]);
+    let _ = proc::output(c).await;
+}
+
+pub(crate) fn quote_filter_path(p: &Path) -> String {
     // O ffmpeg aceita "/" no Windows; ":" (de "C:") precisa ser escapado no filtro
     let s = p.to_string_lossy().replace('\\', "/");
     format!("'{}'", s.replace('\'', "'\\''").replace(':', "\\:"))
@@ -197,6 +279,9 @@ pub struct RenderJob<'a> {
     pub end: f64,
     /// Enquadramento escolhido para o clipe: "auto", "speaker", "split", "center" ou "fit"
     pub framing: &'a str,
+    /// Estrutura de edição (ver `structures`); "classic" usa o caminho abaixo
+    pub structure: &'a str,
+    pub clip: &'a crate::state::Clip,
 }
 
 /// Filtros da tela dividida: duas metades empilhadas, cada uma aproximada no rosto de
@@ -250,15 +335,14 @@ pub async fn render(
     cancel: &CancellationToken,
     mut progress: impl FnMut(f32),
 ) -> Result<String> {
+    if job.structure != "classic" && job.info.has_video {
+        return crate::edit::render(&job, cancel, progress).await;
+    }
     let cfg = job.cfg;
     let (w, h) = cfg.out_size();
     let dur = (job.end - job.start).max(0.5);
     // Mantém a fluidez do original: 60 quadros/s quando o vídeo tiver, senão 30
-    let fps: f64 = if cfg.quality != "720" && job.info.fps >= 47.0 {
-        60.0
-    } else {
-        30.0
-    };
+    let fps = output_fps(cfg, job.info);
     let mut graph;
     let mut inputs: Vec<String> = vec![];
     let mut framing_desc = String::from("Só áudio");
@@ -386,7 +470,11 @@ pub async fn render(
         let ass_name = format!("{}.ass", job.name);
         let ass = build_ass(
             cfg,
-            if with_subs { &job.transcript.words } else { &[] },
+            if with_subs {
+                &job.transcript.words
+            } else {
+                &[]
+            },
             job.start,
             job.end,
             w,
@@ -418,37 +506,7 @@ pub async fn render(
     .arg(job.src);
     c.args(&inputs);
     c.args(["-filter_complex", &graph, "-map", "[v]", "-map", "0:a?"]);
-    let fps_s = fps.to_string();
-    let gop = (fps * 2.0).to_string();
-    if cfg.quality == "720" {
-        // "Mais rápida": prioriza o tempo de renderização
-        c.args(["-c:v", "libx264", "-preset", "veryfast", "-crf", "21"]);
-    } else {
-        // Máxima nitidez: compressão cuidadosa, qualidade visual próxima do original
-        c.args(["-c:v", "libx264", "-preset", "medium", "-crf", "17"]);
-        c.args([
-            "-profile:v",
-            "high",
-            "-level:v",
-            "4.2",
-            "-bf",
-            "3",
-            "-aq-mode",
-            "3",
-        ]);
-    }
-    c.args(["-pix_fmt", "yuv420p", "-r", &fps_s, "-g", &gop]);
-    // Cores no padrão de vídeo HD, para não ficarem lavadas no celular
-    c.args([
-        "-colorspace",
-        "bt709",
-        "-color_primaries",
-        "bt709",
-        "-color_trc",
-        "bt709",
-        "-color_range",
-        "tv",
-    ]);
+    c.args(video_args(cfg, fps));
     c.args([
         "-c:a",
         "aac",
@@ -474,29 +532,7 @@ pub async fn render(
     .await
     .context("falha ao renderizar o clipe")?;
 
-    // Miniatura
-    let mut c = crate::proc::command(paths::ffmpeg());
-    c.current_dir(job.work);
-    c.args([
-        "-hide_banner",
-        "-loglevel",
-        "error",
-        "-y",
-        "-ss",
-        &format!("{:.2}", (dur * 0.3).min(3.0)),
-        "-i",
-        &out,
-    ]);
-    c.args([
-        "-frames:v",
-        "1",
-        "-vf",
-        "scale=360:-2",
-        "-q:v",
-        "4",
-        &format!("{}.jpg", job.name),
-    ]);
-    let _ = proc::output(c).await;
+    thumbnail(job.work, job.name, dur).await;
     Ok(framing_desc)
 }
 
@@ -512,7 +548,10 @@ mod tests {
         assert_eq!(cfg.watermark_text().as_deref(), Some("@meuperfil"));
         cfg.watermark = "@@canal".into();
         let ass = build_ass(&cfg, &[], 0.0, 10.0, 1080, 1920, None, &[]);
-        assert!(ass.contains("Marca,,0,0,0,,{\\pos(540,134)}@canal"), "{ass}");
+        assert!(
+            ass.contains("Marca,,0,0,0,,{\\pos(540,134)}@canal"),
+            "{ass}"
+        );
         cfg.watermark = "@".into();
         assert!(cfg.watermark_text().is_none());
     }

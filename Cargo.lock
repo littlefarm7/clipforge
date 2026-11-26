@@ -143,24 +143,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "clipforge"
-version = "0.6.1"
-dependencies = [
- "anyhow",
- "axum",
- "dirs",
- "futures-util",
- "reqwest",
- "rustface",
- "serde",
- "serde_json",
- "tokio",
- "tokio-util",
- "tower-http 0.7.1",
- "uuid",
-]
-
-[[package]]
 name = "core-foundation"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -666,6 +648,24 @@ dependencies = [
  "cfg-if",
  "futures-util",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "kerf"
+version = "1.0.0"
+dependencies = [
+ "anyhow",
+ "axum",
+ "dirs",
+ "futures-util",
+ "reqwest",
+ "rustface",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tokio-util",
+ "tower-http 0.7.1",
+ "uuid",
 ]
 
 [[package]]

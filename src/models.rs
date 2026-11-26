@@ -302,7 +302,7 @@ pub fn safe_file_name(name: &str) -> Result<String> {
 
 pub fn http_client() -> reqwest::Client {
     reqwest::Client::builder()
-        .user_agent(concat!("ClipForge/", env!("CARGO_PKG_VERSION")))
+        .user_agent(concat!("KERF/", env!("CARGO_PKG_VERSION")))
         .connect_timeout(std::time::Duration::from_secs(30))
         .build()
         .expect("cliente http")

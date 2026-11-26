@@ -407,6 +407,27 @@ async fn run_full(app: &App, id: &str, cancel: &CancellationToken) -> Result<()>
             cfg.llm_provider = "none".into();
         }
     }
+    // Estrutura de edição do projeto: muda a duração dos trechos e o pedido à IA
+    let structure = if project.structure.is_empty() {
+        cfg.structure.clone()
+    } else {
+        project.structure.clone()
+    };
+    cfg.structure = structure.clone();
+    {
+        let st = structure.clone();
+        app.update(id, true, |p| p.structure = st);
+    }
+    if let Some((lo, hi)) = crate::structures::length_override(&structure) {
+        cfg.min_len = lo;
+        cfg.max_len = hi;
+    }
+    let lists = cfg.max_clips.max(1);
+    let per_list = cfg.style(&structure).items.clamp(2, 8);
+    if structure == "top" {
+        // Cada clipe é uma lista: pede momentos suficientes para todas
+        cfg.max_clips = (lists * per_list).min(40);
+    }
     stage(app, id, "Analisando", 0.0);
     let (cands, notice) =
         highlights::find(&cfg, &transcript, info.duration, cancel, |pr, label| {
@@ -424,24 +445,33 @@ async fn run_full(app: &App, id: &str, cancel: &CancellationToken) -> Result<()>
             let _ = std::fs::remove_file(e.path());
         }
     }
-    let clips: Vec<Clip> = cands
-        .iter()
-        .enumerate()
-        .map(|(i, c)| Clip {
-            index: i as u32,
-            name: format!("clip_{:02}", i + 1),
-            start: c.start,
-            end: c.end,
-            title: c.title.clone(),
-            score: c.score,
-            reason: c.reason.clone(),
-            text: transcript.text_between(c.start, c.end),
-            status: "pending".into(),
-            ..Default::default()
-        })
-        .collect();
+    let clips: Vec<Clip> = if structure == "top" {
+        top_lists(&cands, &transcript, lists as usize, per_list as usize)
+    } else {
+        cands
+            .iter()
+            .enumerate()
+            .map(|(i, c)| Clip {
+                index: i as u32,
+                name: format!("clip_{:02}", i + 1),
+                start: c.start,
+                end: c.end,
+                title: c.title.clone(),
+                score: c.score,
+                reason: c.reason.clone(),
+                text: transcript.text_between(c.start, c.end),
+                status: "pending".into(),
+                context: c.context.clone(),
+                ..Default::default()
+            })
+            .collect()
+    };
     let n = clips.len();
-    let wanted = cfg.max_clips.max(1) as usize;
+    let wanted = if structure == "top" {
+        lists as usize
+    } else {
+        cfg.max_clips.max(1) as usize
+    };
     let count_notice = (n < wanted).then(|| {
         format!(
             "Foram criados {n} de {wanted} clipes: o vídeo não tem trechos suficientes de {:.0}–{:.0} segundos \
@@ -477,6 +507,56 @@ sem repetir conteúdo. Para ter mais clipes, escolha uma duração mais curta.",
         .await?;
     }
     Ok(())
+}
+
+/// Monta as listas do Top Momentos: os melhores momentos são distribuídos entre as listas
+/// (a melhor lista primeiro) e, dentro de cada uma, ficam em ordem cronológica.
+fn top_lists(
+    cands: &[highlights::Candidate],
+    transcript: &Transcript,
+    lists: usize,
+    per_list: usize,
+) -> Vec<Clip> {
+    let n_lists = cands.len().div_ceil(per_list).clamp(1, lists);
+    let take = (n_lists * per_list).min(cands.len());
+    let mut groups: Vec<Vec<&highlights::Candidate>> = vec![Vec::new(); n_lists];
+    for (i, c) in cands.iter().take(take).enumerate() {
+        groups[i % n_lists].push(c);
+    }
+    groups
+        .into_iter()
+        .filter(|g| g.len() >= 2 || n_lists == 1)
+        .enumerate()
+        .map(|(i, mut g)| {
+            g.sort_by(|a, b| a.start.total_cmp(&b.start));
+            let items: Vec<crate::state::Moment> = g
+                .iter()
+                .map(|c| crate::state::Moment {
+                    start: c.start,
+                    end: c.end,
+                    label: c.label.clone(),
+                })
+                .collect();
+            let text = g
+                .iter()
+                .map(|c| transcript.text_between(c.start, c.end))
+                .collect::<Vec<_>>()
+                .join(" … ");
+            Clip {
+                index: i as u32,
+                name: format!("clip_{:02}", i + 1),
+                start: items.first().map(|m| m.start).unwrap_or(0.0),
+                end: items.last().map(|m| m.end).unwrap_or(0.0),
+                title: g.first().map(|c| c.title.clone()).unwrap_or_default(),
+                score: (g.iter().map(|c| c.score).sum::<u32>() / g.len().max(1) as u32),
+                reason: format!("{} momentos em ordem cronológica.", g.len()),
+                text,
+                status: "pending".into(),
+                items,
+                ..Default::default()
+            }
+        })
+        .collect()
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -518,6 +598,13 @@ async fn render_one(
         &label,
         batch.map(|(i, n)| i as f32 / n as f32).unwrap_or(0.0),
     );
+    let project_structure = app.get(id).map(|p| p.structure).unwrap_or_default();
+    // Projetos antigos (sem estrutura salva) continuam no Clássico
+    let structure = [clip.structure.as_str(), project_structure.as_str()]
+        .into_iter()
+        .find(|s| crate::structures::info(s).is_some())
+        .unwrap_or("classic")
+        .to_string();
     let job = RenderJob {
         cfg: &cfg,
         src,
@@ -528,6 +615,8 @@ async fn render_one(
         start: clip.start,
         end: clip.end,
         framing: &clip.framing,
+        structure: &structure,
+        clip: &clip,
     };
     let res = render::render(job, cancel, |pr| {
         set_clip(&|c| c.progress = pr);

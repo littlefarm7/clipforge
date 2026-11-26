@@ -106,7 +106,7 @@ conectada, feche o navegador e clique em \"Tentar de novo\"."
             .into();
     }
     if has(&t, &["nenhuma fala", "no speech"]) {
-        return "Não encontramos fala neste vídeo. O ClipForge funciona com vídeos em que pessoas falam (podcasts, \
+        return "Não encontramos fala neste vídeo. O KERF funciona com vídeos em que pessoas falam (podcasts, \
 aulas, entrevistas, vlogs)."
             .into();
     }

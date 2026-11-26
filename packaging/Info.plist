@@ -2,14 +2,14 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>CFBundleName</key><string>ClipForge</string>
-  <key>CFBundleDisplayName</key><string>ClipForge</string>
-  <key>CFBundleIdentifier</key><string>io.github.littlefarm7.clipforge</string>
+  <key>CFBundleName</key><string>KERF</string>
+  <key>CFBundleDisplayName</key><string>KERF</string>
+  <key>CFBundleIdentifier</key><string>io.github.littlefarm7.kerf</string>
   <key>CFBundleVersion</key><string>@VERSION@</string>
   <key>CFBundleShortVersionString</key><string>@VERSION@</string>
   <key>CFBundlePackageType</key><string>APPL</string>
-  <key>CFBundleExecutable</key><string>ClipForge</string>
-  <key>CFBundleIconFile</key><string>clipforge</string>
+  <key>CFBundleExecutable</key><string>KERF</string>
+  <key>CFBundleIconFile</key><string>kerf</string>
   <key>LSMinimumSystemVersion</key><string>12.0</string>
   <!-- O app não tem janela própria: a interface abre no navegador -->
   <key>LSUIElement</key><true/>

@@ -1,6 +1,6 @@
 # Componentes de terceiros
 
-O código do ClipForge é distribuído sob a licença MIT (arquivo `LICENSE`).
+O código do KERF é distribuído sob a licença MIT (arquivo `LICENSE`).
 Os pacotes prontos (AppImage, zip do Windows e do macOS) também incluem os programas abaixo, cada um com a sua licença:
 
 | Componente | Uso | Licença | Fonte |
@@ -10,7 +10,7 @@ Os pacotes prontos (AppImage, zip do Windows e do macOS) também incluem os prog
 | llama.cpp | IA local (llama-server) | MIT | https://github.com/ggml-org/llama.cpp |
 | yt-dlp | Download de vídeos da web | Unlicense | https://github.com/yt-dlp/yt-dlp |
 | Deno | Executa os scripts do YouTube usados pelo yt-dlp | MIT | https://github.com/denoland/deno |
-| Fontes Anton e Poppins | Legendas e título | SIL Open Font License 1.1 | https://fonts.google.com |
+| Fontes Anton, Poppins, Archivo Black e Space Mono | Legendas, títulos e interface | SIL Open Font License 1.1 | https://fonts.google.com |
 | Modelo SeetaFace (via rustface) | Detecção de rosto | BSD-2-Clause | https://github.com/atomashpolskiy/rustface |
 
 Os builds do FFmpeg são licenciados pela GPL. Ao redistribuir os pacotes, mantenha a pasta de licenças junto

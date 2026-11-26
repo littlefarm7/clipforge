@@ -31,6 +31,21 @@ pub struct Clip {
     pub framing: String,
     /// Enquadramento usado na última renderização (para mostrar na tela)
     pub framing_desc: String,
+    /// Estrutura de edição deste clipe ("" = a do projeto)
+    pub structure: String,
+    /// Texto de contexto do meme (escrito pela IA)
+    pub context: String,
+    /// Momentos de uma lista (Top Momentos); vazio nas outras estruturas
+    pub items: Vec<Moment>,
+}
+
+/// Um momento de uma lista do Top Momentos.
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+#[serde(default)]
+pub struct Moment {
+    pub start: f64,
+    pub end: f64,
+    pub label: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -51,6 +66,8 @@ pub struct Project {
     pub notice: Option<String>,
     pub duration: f64,
     pub language: String,
+    /// Estrutura de edição escolhida ao criar o projeto
+    pub structure: String,
     pub clips: Vec<Clip>,
 }
 

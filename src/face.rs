@@ -65,7 +65,7 @@ struct Track {
     ended: bool,
 }
 
-fn std_command(program: impl AsRef<std::ffi::OsStr>) -> std::process::Command {
+pub(crate) fn std_command(program: impl AsRef<std::ffi::OsStr>) -> std::process::Command {
     #[allow(unused_mut)]
     let mut c = std::process::Command::new(program);
     #[cfg(windows)]
@@ -198,11 +198,34 @@ fn audio_levels(src: &Path, start: f64, dur: f64, frames: usize) -> Vec<f64> {
 
 /// Lê o trecho do vídeo e coleta tudo o que é preciso para decidir o enquadramento.
 pub async fn analyze(src: &Path, start: f64, dur: f64, src_w: u32, src_h: u32) -> Result<Analysis> {
-    let src = src.to_path_buf();
-    tokio::task::spawn_blocking(move || analyze_blocking(&src, start, dur, src_w, src_h)).await?
+    analyze_opts(src, start, dur, src_w, src_h, false).await
 }
 
-fn analyze_blocking(src: &Path, start: f64, dur: f64, src_w: u32, src_h: u32) -> Result<Analysis> {
+/// Igual a `analyze`; com `small_faces` detecta rostos pequenos (webcam no canto de uma
+/// live), usando a imagem inteira em vez da metade (mais lento).
+pub async fn analyze_opts(
+    src: &Path,
+    start: f64,
+    dur: f64,
+    src_w: u32,
+    src_h: u32,
+    small_faces: bool,
+) -> Result<Analysis> {
+    let src = src.to_path_buf();
+    tokio::task::spawn_blocking(move || {
+        analyze_blocking(&src, start, dur, src_w, src_h, small_faces)
+    })
+    .await?
+}
+
+fn analyze_blocking(
+    src: &Path,
+    start: f64,
+    dur: f64,
+    src_w: u32,
+    src_h: u32,
+    small_faces: bool,
+) -> Result<Analysis> {
     let aw = AW as usize;
     let ah =
         ((((AW as f64) * src_h as f64 / src_w.max(1) as f64) / 2.0).round() as usize * 2).max(2);
@@ -264,8 +287,13 @@ fn analyze_blocking(src: &Path, start: f64, dur: f64, src_w: u32, src_h: u32) ->
         let any_active = tracks.iter().any(|t| !t.ended && i - t.last_seen <= 10);
         if i.is_multiple_of(DETECT_EVERY) || cut || !any_active {
             // Detecta na imagem pela metade (4× mais rápido); as posições são relativas (0..1)
-            let small = half_size(&cur, aw, ah);
-            let (sw, sh) = ((aw / 2) as f64, (ah / 2) as f64);
+            let small = if small_faces {
+                cur.clone()
+            } else {
+                half_size(&cur, aw, ah)
+            };
+            let div = if small_faces { 1 } else { 2 };
+            let (sw, sh) = ((aw / div) as f64, (ah / div) as f64);
             let img = rustface::ImageData::new(&small, sw as u32, sh as u32);
             for f in det.detect(&img) {
                 let b = f.bbox();

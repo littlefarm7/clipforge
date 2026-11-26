@@ -1,5 +1,5 @@
 #!/bin/bash
-# Gera os pacotes do ClipForge para Linux (AppImage), Windows (zip) e macOS (zip com .app),
+# Gera os pacotes do KERF para Linux (AppImage), Windows (zip) e macOS (zip com .app),
 # tudo a partir de um Linux x86_64.
 #
 # Requisitos: rust (rustup), cmake, git, curl, zip, python3, strip
@@ -12,7 +12,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 P="$ROOT/packaging"
-WORK="${WORK:-$HOME/clipforge-build}"
+WORK="${WORK:-$HOME/kerf-build}"
 DIST="${DIST:-$ROOT/dist}"
 VER=$(grep -m1 '^version' "$ROOT/Cargo.toml" | cut -d'"' -f2)
 LLAMA_TAG="${LLAMA_TAG:-b11723}"
@@ -67,7 +67,7 @@ build_app() {
 
 copy_licenses() { # destino
   mkdir -p "$1"
-  cp "$ROOT/LICENSE" "$1/LICENSE-ClipForge.txt"
+  cp "$ROOT/LICENSE" "$1/LICENSE-KERF.txt"
   cp whisper.cpp/LICENSE "$1/LICENSE-whisper.cpp.txt"
   cp llama.cpp/LICENSE "$1/LICENSE-llama.cpp.txt"
   cp "$ROOT"/assets/fonts/OFL-*.txt "$1/"
@@ -93,11 +93,11 @@ if want linux; then
 
   A="$WORK/AppDir"; rm -rf "$A"
   mkdir -p "$A/usr/bin" "$A/usr/share/applications" "$A/usr/share/icons/hicolor/scalable/apps"
-  cp "$P/AppRun" "$P/clipforge.desktop" "$P/clipforge.svg" "$A/"
-  cp "$P/clipforge.desktop" "$A/usr/share/applications/"
-  cp "$P/clipforge.svg" "$A/usr/share/icons/hicolor/scalable/apps/"
-  ln -s clipforge.svg "$A/.DirIcon"
-  cp "$ROOT/target/x86_64-unknown-linux-gnu/release/clipforge" "$A/usr/bin/"
+  cp "$P/AppRun" "$P/kerf.desktop" "$P/kerf.svg" "$A/"
+  cp "$P/kerf.desktop" "$A/usr/share/applications/"
+  cp "$P/kerf.svg" "$A/usr/share/icons/hicolor/scalable/apps/"
+  ln -s kerf.svg "$A/.DirIcon"
+  cp "$ROOT/target/x86_64-unknown-linux-gnu/release/kerf" "$A/usr/bin/"
   cp ff-linux/bin/ffmpeg ff-linux/bin/ffprobe "$A/usr/bin/"
   cp yt-dlp_linux "$A/usr/bin/yt-dlp"
   unzip -o -q deno-linux.zip -d "$A/usr/bin/"
@@ -105,11 +105,11 @@ if want linux; then
     strip -o "$A/usr/bin/whisper-cli-$v" "whisper.cpp/build-linux-$v/bin/whisper-cli"
     strip -o "$A/usr/bin/llama-server-$v" "llama.cpp/build-linux-$v/bin/llama-server"
   done
-  copy_licenses "$A/usr/share/doc/clipforge"
-  cp ff-linux/LICENSE.txt "$A/usr/share/doc/clipforge/LICENSE-ffmpeg.txt"
+  copy_licenses "$A/usr/share/doc/kerf"
+  cp ff-linux/LICENSE.txt "$A/usr/share/doc/kerf/LICENSE-ffmpeg.txt"
   chmod +x "$A"/usr/bin/*
-  rm -f "$DIST/ClipForge-$VER-x86_64.AppImage"
-  ARCH=x86_64 APPIMAGE_EXTRACT_AND_RUN=1 ./appimagetool --runtime-file runtime-x86_64 --comp zstd "$A" "$DIST/ClipForge-$VER-x86_64.AppImage"
+  rm -f "$DIST/KERF-$VER-x86_64.AppImage"
+  ARCH=x86_64 APPIMAGE_EXTRACT_AND_RUN=1 ./appimagetool --runtime-file runtime-x86_64 --comp zstd "$A" "$DIST/KERF-$VER-x86_64.AppImage"
 fi
 
 # ================= Windows (zip portátil) =================
@@ -127,21 +127,21 @@ if want windows; then
   fetch $GH/ggml-org/llama.cpp/releases/download/$LLAMA_TAG/llama-$LLAMA_TAG-bin-win-cpu-x64.zip llama-win.zip
   build_app x86_64-pc-windows-gnu
 
-  W="$WORK/win/ClipForge"; rm -rf "$WORK/win"; mkdir -p "$W/llama"
-  cp "$ROOT/target/x86_64-pc-windows-gnu/release/clipforge.exe" "$W/ClipForge.exe"
+  W="$WORK/win/KERF"; rm -rf "$WORK/win"; mkdir -p "$W/llama"
+  cp "$ROOT/target/x86_64-pc-windows-gnu/release/kerf.exe" "$W/KERF.exe"
   cp ff-win/bin/ffmpeg.exe ff-win/bin/ffprobe.exe yt-dlp.exe "$W/"
   unzip -o -q deno-win.zip -d "$W/"
   for v in avx2 generic; do cp "whisper.cpp/build-win-$v/bin/whisper-cli.exe" "$W/whisper-cli-$v.exe"; done
   # llama.cpp oficial (escolhe sozinho a melhor versão para a CPU); só o servidor e as DLLs
   unzip -q llama-win.zip -d "$WORK/win/llama-all"
   cp "$WORK/win/llama-all/"*.dll "$WORK/win/llama-all/llama-server.exe" "$W/llama/"
-  cp "$P/clipforge.ico" "$W/"
+  cp "$P/kerf.ico" "$W/"
   cp "$P/LEIA-ME-windows.txt" "$W/LEIA-ME.txt"
   copy_licenses "$W/licencas"
   cp ff-win/LICENSE.txt "$W/licencas/LICENSE-ffmpeg.txt"
   cp "$WORK/win/llama-all/LICENSE-"* "$W/licencas/" 2>/dev/null || true
-  rm -f "$DIST/ClipForge-$VER-windows-x64.zip"
-  (cd "$WORK/win" && zip -q -r -9 "$DIST/ClipForge-$VER-windows-x64.zip" ClipForge)
+  rm -f "$DIST/KERF-$VER-windows-x64.zip"
+  (cd "$WORK/win" && zip -q -r -9 "$DIST/KERF-$VER-windows-x64.zip" KERF)
 fi
 
 # ================= macOS (.app em zip) =================
@@ -161,11 +161,11 @@ if want macos; then
     fetch $GH/ggml-org/llama.cpp/releases/download/$LLAMA_TAG/llama-$LLAMA_TAG-bin-macos-$arch.tar.gz llama-mac-$arch.tar.gz
     build_app $RT
 
-    M="$WORK/mac-$arch"; rm -rf "$M"; APP="$M/ClipForge.app/Contents"
+    M="$WORK/mac-$arch"; rm -rf "$M"; APP="$M/KERF.app/Contents"
     mkdir -p "$APP/MacOS/llama" "$APP/Resources"
     sed "s/@VERSION@/$VER/g" "$P/Info.plist" > "$APP/Info.plist"
-    cp "$P/clipforge.icns" "$APP/Resources/"
-    cp "$ROOT/target/$RT/release/clipforge" "$APP/MacOS/ClipForge"
+    cp "$P/kerf.icns" "$APP/Resources/"
+    cp "$ROOT/target/$RT/release/kerf" "$APP/MacOS/KERF"
     cp ffmpeg-darwin-$arch "$APP/MacOS/ffmpeg"; cp ffprobe-darwin-$arch "$APP/MacOS/ffprobe"
     cp yt-dlp_macos "$APP/MacOS/yt-dlp"
     unzip -o -q deno-mac-$arch.zip -d "$APP/MacOS/"
@@ -180,14 +180,14 @@ if want macos; then
       for f in "$APP/MacOS/"* "$APP/MacOS/llama/"*; do
         [ -f "$f" ] && [ ! -L "$f" ] && rcodesign sign "$f" >/dev/null 2>&1 || true
       done
-      rcodesign sign "$M/ClipForge.app" >/dev/null 2>&1 || true
+      rcodesign sign "$M/KERF.app" >/dev/null 2>&1 || true
     fi
     cp "$P/LEIA-ME-macos.txt" "$M/LEIA-ME.txt"
-    rm -f "$DIST/ClipForge-$VER-macos-$arch.zip"
-    (cd "$M" && zip -q -r -y -9 "$DIST/ClipForge-$VER-macos-$arch.zip" ClipForge.app LEIA-ME.txt)
+    rm -f "$DIST/KERF-$VER-macos-$arch.zip"
+    (cd "$M" && zip -q -r -y -9 "$DIST/KERF-$VER-macos-$arch.zip" KERF.app LEIA-ME.txt)
   done
 fi
 
-(cd "$DIST" && sha256sum ClipForge-$VER-* 2>/dev/null | grep -v sha256 > SHA256SUMS.txt || true)
+(cd "$DIST" && sha256sum KERF-$VER-* 2>/dev/null | grep -v sha256 > SHA256SUMS.txt || true)
 echo "Pronto. Pacotes em $DIST:"
 ls -la "$DIST"

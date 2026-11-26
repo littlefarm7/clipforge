@@ -1,9 +1,11 @@
-//! ClipForge — gera clipes curtos e virais a partir de vídeos longos, 100% local.
+//! KERF — gera clipes curtos e virais a partir de vídeos longos, 100% local.
 
 // No Windows o app roda sem janela de console (a interface é a página no navegador).
 #![cfg_attr(windows, windows_subsystem = "windows")]
 
+mod captions;
 mod config;
+mod edit;
 mod face;
 mod friendly;
 mod highlights;
@@ -14,6 +16,7 @@ mod pipeline;
 mod proc;
 mod render;
 mod state;
+mod structures;
 mod transcribe;
 
 use axum::extract::{DefaultBodyLimit, Multipart, Path as AxPath, State};
@@ -35,6 +38,26 @@ pub static FONTS: &[(&str, &[u8])] = &[
     (
         "Poppins-Bold.ttf",
         include_bytes!("../assets/fonts/Poppins-Bold.ttf"),
+    ),
+    (
+        "Poppins-ExtraBold.ttf",
+        include_bytes!("../assets/fonts/Poppins-ExtraBold.ttf"),
+    ),
+    (
+        "Poppins-ExtraBoldItalic.ttf",
+        include_bytes!("../assets/fonts/Poppins-ExtraBoldItalic.ttf"),
+    ),
+    (
+        "ArchivoBlack-Regular.ttf",
+        include_bytes!("../assets/fonts/ArchivoBlack-Regular.ttf"),
+    ),
+    (
+        "SpaceMono-Regular.ttf",
+        include_bytes!("../assets/fonts/SpaceMono-Regular.ttf"),
+    ),
+    (
+        "SpaceMono-Bold.ttf",
+        include_bytes!("../assets/fonts/SpaceMono-Bold.ttf"),
     ),
 ];
 
@@ -81,6 +104,18 @@ async fn api_state(State(app): State<App>) -> Json<Value> {
 #[derive(Deserialize)]
 struct NewProject {
     url: String,
+    /// Estrutura de edição (vazio = a padrão dos ajustes)
+    #[serde(default)]
+    structure: String,
+}
+
+/// Estrutura válida pedida pela interface, ou a padrão dos ajustes.
+fn pick_structure(app: &App, s: &str) -> String {
+    if structures::info(s).is_some() {
+        s.to_string()
+    } else {
+        app.config().structure
+    }
 }
 
 async fn api_new_project(State(app): State<App>, Json(req): Json<NewProject>) -> ApiResult {
@@ -96,6 +131,7 @@ async fn api_new_project(State(app): State<App>, Json(req): Json<NewProject>) ->
         created: now(),
         status: "queued".into(),
         stage: "Na fila".into(),
+        structure: pick_structure(&app, &req.structure),
         ..Default::default()
     });
     app.enqueue(Job::Full(id.clone()));
@@ -103,7 +139,12 @@ async fn api_new_project(State(app): State<App>, Json(req): Json<NewProject>) ->
 }
 
 async fn api_upload(State(app): State<App>, mut mp: Multipart) -> ApiResult {
+    let mut structure = String::new();
     while let Some(mut field) = mp.next_field().await? {
+        if field.name() == Some("structure") {
+            structure = field.text().await.unwrap_or_default();
+            continue;
+        }
         if field.name() != Some("file") {
             continue;
         }
@@ -135,6 +176,7 @@ async fn api_upload(State(app): State<App>, mut mp: Multipart) -> ApiResult {
             created: now(),
             status: "queued".into(),
             stage: "Na fila".into(),
+            structure: pick_structure(&app, &structure),
             ..Default::default()
         });
         app.enqueue(Job::Full(id.clone()));
@@ -203,6 +245,10 @@ struct ClipEdit {
     title: Option<String>,
     /// "auto", "speaker", "split", "center" ou "fit"
     framing: Option<String>,
+    /// Estrutura de edição deste clipe
+    structure: Option<String>,
+    /// Texto de contexto do meme
+    context: Option<String>,
 }
 
 async fn api_clip_render(
@@ -235,6 +281,14 @@ async fn api_clip_render(
             {
                 c.framing = f.clone();
             }
+            if let Some(st) = &req.structure
+                && structures::info(st).is_some()
+            {
+                c.structure = st.clone();
+            }
+            if let Some(ctx) = &req.context {
+                c.context = ctx.trim().chars().take(200).collect();
+            }
             c.status = "pending".into();
         }
         p.status = "queued".into();
@@ -242,6 +296,104 @@ async fn api_clip_render(
     });
     app.enqueue(Job::Clip(id, idx));
     Ok(Json(json!({"ok": true})))
+}
+
+// ---------- Estruturas e músicas ----------
+
+async fn api_structures(State(app): State<App>) -> Json<Value> {
+    let cfg = app.config();
+    let list: Vec<Value> = structures::ALL
+        .iter()
+        .map(
+            |i| json!({"info": i, "defaults": structures::defaults(i.id), "opts": cfg.style(i.id)}),
+        )
+        .collect();
+    Json(json!({"structures": list}))
+}
+
+fn music_name(name: &str) -> Option<String> {
+    let n = std::path::Path::new(name)
+        .file_name()?
+        .to_string_lossy()
+        .into_owned();
+    let ext = std::path::Path::new(&n)
+        .extension()?
+        .to_string_lossy()
+        .to_lowercase();
+    ["mp3", "m4a", "aac", "wav", "ogg", "opus", "flac"]
+        .contains(&ext.as_str())
+        .then_some(n)
+}
+
+async fn api_music_list() -> Json<Value> {
+    let mut list: Vec<Value> = std::fs::read_dir(paths::music_dir())
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter_map(|e| {
+            let name = music_name(&e.file_name().to_string_lossy())?;
+            let size = e.metadata().ok()?.len();
+            Some(json!({"name": name, "size": size}))
+        })
+        .collect();
+    list.sort_by(|a, b| a["name"].as_str().cmp(&b["name"].as_str()));
+    Json(json!({"music": list}))
+}
+
+async fn api_music_upload(mut mp: Multipart) -> ApiResult {
+    while let Some(mut field) = mp.next_field().await? {
+        if field.name() != Some("file") {
+            continue;
+        }
+        let fname = field.file_name().unwrap_or("").to_string();
+        let name = music_name(&fname).ok_or_else(|| {
+            err("Formato de música não suportado. Use MP3, M4A, WAV, OGG, OPUS ou FLAC.")
+        })?;
+        let dir = paths::music_dir();
+        tokio::fs::create_dir_all(&dir).await?;
+        let tmp = dir.join(format!(".{name}.upload"));
+        let mut f = tokio::fs::File::create(&tmp).await?;
+        while let Some(chunk) = field.chunk().await? {
+            f.write_all(&chunk).await?;
+        }
+        f.flush().await?;
+        drop(f);
+        tokio::fs::rename(&tmp, dir.join(&name)).await?;
+        return Ok(Json(json!({"name": name})));
+    }
+    Err(err("nenhum arquivo enviado"))
+}
+
+#[derive(Deserialize)]
+struct MusicDelete {
+    name: String,
+}
+
+async fn api_music_delete(Json(req): Json<MusicDelete>) -> ApiResult {
+    let name = music_name(&req.name).ok_or_else(|| err("música inválida"))?;
+    let _ = tokio::fs::remove_file(paths::music_dir().join(name)).await;
+    Ok(Json(json!({"ok": true})))
+}
+
+async fn music_file(AxPath(name): AxPath<String>) -> Response {
+    let Some(name) = music_name(&name) else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    match tokio::fs::read(paths::music_dir().join(&name)).await {
+        Ok(bytes) => {
+            let ext = name.rsplit('.').next().unwrap_or("").to_lowercase();
+            let ct = match ext.as_str() {
+                "mp3" => "audio/mpeg",
+                "m4a" | "aac" => "audio/mp4",
+                "wav" => "audio/wav",
+                "ogg" | "opus" => "audio/ogg",
+                "flac" => "audio/flac",
+                _ => "application/octet-stream",
+            };
+            ([(header::CONTENT_TYPE, ct)], bytes).into_response()
+        }
+        Err(_) => StatusCode::NOT_FOUND.into_response(),
+    }
 }
 
 // ---------- Configuração ----------
@@ -544,7 +696,7 @@ fn open_external(target: &std::ffi::OsStr) {
 }
 
 fn open_browser(url: &str) {
-    if std::env::var_os("CLIPFORGE_NO_BROWSER").is_some() {
+    if std::env::var_os("KERF_NO_BROWSER").is_some() {
         return;
     }
     open_external(std::ffi::OsStr::new(url));
@@ -566,10 +718,10 @@ async fn existing_instance() -> Option<u16> {
         .send()
         .await
         .ok()?;
-    (r.text().await.ok()? == "clipforge").then_some(port)
+    (r.text().await.ok()? == "kerf").then_some(port)
 }
 
-/// Diagnóstico: `clipforge --diagnostico-enquadramento VIDEO INICIO DURACAO [modo]`
+/// Diagnóstico: `kerf --diagnostico-enquadramento VIDEO INICIO DURACAO [modo]`
 /// mostra, em JSON, o enquadramento escolhido e o alvo da câmera a cada 0,1 s.
 async fn framing_diagnostics(args: &[String]) -> anyhow::Result<()> {
     let video = std::path::PathBuf::from(&args[0]);
@@ -600,16 +752,63 @@ async fn framing_diagnostics(args: &[String]) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Teste: `--estrutura VIDEO TRANSCRICAO.json ESTRUTURA INICIO FIM PASTA [MOMENTOS.json]`
+/// monta um clipe numa estrutura sem passar pela interface.
+async fn structure_cli(args: &[String]) -> anyhow::Result<()> {
+    let video = std::path::PathBuf::from(&args[0]);
+    let transcript: transcribe::Transcript = serde_json::from_slice(&std::fs::read(&args[1])?)?;
+    let structure = args[2].clone();
+    let start: f64 = args[3].parse()?;
+    let end: f64 = args[4].parse()?;
+    let work = std::path::PathBuf::from(&args[5]);
+    std::fs::create_dir_all(&work)?;
+    paths::init();
+    let mut clip = state::Clip {
+        name: "teste".into(),
+        start,
+        end,
+        title: "Ninguém esperava essa resposta".into(),
+        context: "Minha mãe: você tem que andar com amigos que te apoiam\nMeus amigos:".into(),
+        ..Default::default()
+    };
+    if let Some(m) = args.get(6) {
+        clip.items = serde_json::from_slice(&std::fs::read(m)?)?;
+    }
+    let cfg = Config::load();
+    let info = proc::probe(&video).await?;
+    let job = render::RenderJob {
+        cfg: &cfg,
+        src: &video,
+        info: &info,
+        transcript: &transcript,
+        work: &work,
+        name: "teste",
+        start,
+        end,
+        framing: "",
+        structure: &structure,
+        clip: &clip,
+    };
+    let t0 = std::time::Instant::now();
+    let desc = render::render(job, &tokio_util::sync::CancellationToken::new(), |_| {}).await?;
+    println!("{desc} ({:.1} s)", t0.elapsed().as_secs_f64());
+    Ok(())
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    paths::migrate_old_dirs();
     let args: Vec<String> = std::env::args().collect();
+    if args.get(1).map(String::as_str) == Some("--estrutura") && args.len() >= 8 {
+        return structure_cli(&args[2..]).await;
+    }
     if args.get(1).map(String::as_str) == Some("--diagnostico-enquadramento") && args.len() >= 3 {
         return framing_diagnostics(&args[2..]).await;
     }
     paths::init();
     if let Some(port) = existing_instance().await {
         let url = format!("http://127.0.0.1:{port}/");
-        println!("ClipForge já está aberto em {url}");
+        println!("KERF já está aberto em {url}");
         open_browser(&url);
         return Ok(());
     }
@@ -623,7 +822,7 @@ async fn main() -> anyhow::Result<()> {
     let files = tower_http::services::ServeDir::new(paths::projects_dir());
     let router = Router::new()
         .route("/", get(index))
-        .route("/api/ping", get(|| async { "clipforge" }))
+        .route("/api/ping", get(|| async { "kerf" }))
         .route("/fonts/{name}", get(font))
         .route("/api/state", get(api_state))
         .route("/api/projects", post(api_new_project))
@@ -638,6 +837,10 @@ async fn main() -> anyhow::Result<()> {
             post(api_clip_render),
         )
         .route("/api/config", get(api_get_config).post(api_set_config))
+        .route("/api/structures", get(api_structures))
+        .route("/api/music", get(api_music_list).post(api_music_upload))
+        .route("/api/music/delete", post(api_music_delete))
+        .route("/music/{name}", get(music_file))
         .route("/api/test-llm", post(api_test_llm))
         .route("/api/models", get(api_models))
         .route("/api/models/download", post(api_model_download))
@@ -651,9 +854,7 @@ async fn main() -> anyhow::Result<()> {
         .layer(DefaultBodyLimit::disable())
         .with_state(app.clone());
 
-    let port_env: Option<u16> = std::env::var("CLIPFORGE_PORT")
-        .ok()
-        .and_then(|p| p.parse().ok());
+    let port_env: Option<u16> = std::env::var("KERF_PORT").ok().and_then(|p| p.parse().ok());
     let mut listener = None;
     for port in port_env.into_iter().chain(7861..7900) {
         if let Ok(l) = tokio::net::TcpListener::bind(("127.0.0.1", port)).await {
@@ -666,7 +867,7 @@ async fn main() -> anyhow::Result<()> {
     let port = listener.local_addr()?.port();
     let _ = std::fs::write(paths::data_dir().join("port"), port.to_string());
     let url = format!("http://127.0.0.1:{port}/");
-    println!("ClipForge rodando em {url}  (feche pelo botão \"Sair\" na página ou com Ctrl+C)");
+    println!("KERF rodando em {url}  (feche pelo botão \"Sair\" na página ou com Ctrl+C)");
     open_browser(&url);
 
     let app2 = app.clone();

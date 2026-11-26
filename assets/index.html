@@ -3,311 +3,387 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ClipForge</title>
-<link rel="icon" href="data:,">
+<title>KERF</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23000'/%3E%3Cpath d='M7 6h5v8l7-8h6l-8 9 9 11h-6l-6-8-2 2v6H7z' fill='%23fff'/%3E%3Cpath d='M3 29L29 3' stroke='%23fff' stroke-width='2'/%3E%3C/svg%3E">
+<script>
+// Tema salvo (antes de desenhar a página, para não piscar)
+try { const t = localStorage.getItem('kerf-theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {}
+</script>
 <style>
-@font-face{font-family:"Poppins";font-weight:700;src:url(/fonts/Poppins-Bold.ttf) format("truetype")}
+@font-face{font-family:"Archivo Black";src:url(/fonts/ArchivoBlack-Regular.ttf) format("truetype")}
+@font-face{font-family:"Space Mono";font-weight:400;src:url(/fonts/SpaceMono-Regular.ttf) format("truetype")}
+@font-face{font-family:"Space Mono";font-weight:700;src:url(/fonts/SpaceMono-Bold.ttf) format("truetype")}
 @font-face{font-family:"Anton";src:url(/fonts/Anton-Regular.ttf) format("truetype")}
+@font-face{font-family:"Poppins";font-weight:700;src:url(/fonts/Poppins-Bold.ttf) format("truetype")}
+
+/* ---------- Tema: monocromático, claro e escuro ---------- */
 :root{
-  --bg:#0a0b11;--card:rgba(255,255,255,.045);--card2:rgba(255,255,255,.07);--card3:rgba(255,255,255,.1);
-  --line:rgba(255,255,255,.09);--line2:rgba(255,255,255,.16);
-  --text:#f1f2f7;--muted:#a3a8bb;--dim:#71778c;
-  --accent:#7c5cff;--accent2:#b18cff;--pink:#ff5ca8;--grad:linear-gradient(135deg,#7c5cff 0%,#b84dff 55%,#ff5ca8 100%);
-  --ok:#3ddc97;--warn:#ffc35c;--bad:#ff6b7d;
-  --r-xl:28px;--r-lg:22px;--r-md:16px;--r-sm:12px;
-  --shadow:0 18px 50px rgba(0,0,0,.35);
+  --bg:#efefea;--paper:#ffffff;--ink:#0b0b0b;--ink2:#3a3a3a;--mute:#6b6b6b;--line:#0b0b0b;--soft:#e2e2dc;
+  --inv:#ffffff;--shadow:6px 6px 0 var(--ink);--shadow-s:3px 3px 0 var(--ink);--b:3px solid var(--ink);
+  color-scheme:light;
 }
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0d0d0d;--paper:#171717;--ink:#f1f1ec;--ink2:#cfcfc9;--mute:#9a9a94;--line:#f1f1ec;--soft:#242424;--inv:#0d0d0d;color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{--bg:#0d0d0d;--paper:#171717;--ink:#f1f1ec;--ink2:#cfcfc9;--mute:#9a9a94;--line:#f1f1ec;--soft:#242424;--inv:#0d0d0d;color-scheme:dark}
+
 *{box-sizing:border-box}
-html{color-scheme:dark}
-body{margin:0;min-height:100vh;color:var(--text);font:15.5px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,Ubuntu,sans-serif;
-  background:radial-gradient(900px 500px at 10% -10%,rgba(124,92,255,.22),transparent 60%),radial-gradient(800px 500px at 100% 0%,rgba(255,92,168,.14),transparent 60%),var(--bg);background-attachment:fixed}
-h1,h2,h3,.logo,.display{font-family:"Poppins",system-ui,sans-serif;font-weight:700;letter-spacing:-.01em}
-a{color:var(--accent2)}
-button,.btn{font:inherit;color:var(--text);background:var(--card2);border:1px solid var(--line);border-radius:999px;padding:10px 18px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;text-decoration:none;transition:transform .15s,background .15s,border-color .15s,box-shadow .15s}
-button:hover,.btn:hover{background:var(--card3);border-color:var(--line2)}
-button:active{transform:scale(.97)}
-button.primary{background:var(--grad);border:none;color:#fff;font-weight:600;box-shadow:0 8px 24px rgba(124,92,255,.35)}
-button.primary:hover{box-shadow:0 10px 30px rgba(124,92,255,.5);transform:translateY(-1px)}
-button.big{padding:15px 30px;font-size:16.5px}
-button.ghost{background:transparent;border-color:transparent;color:var(--muted)}
-button.ghost:hover{background:var(--card2);color:var(--text)}
-button.small,.btn.small{padding:7px 14px;font-size:13.5px}
-button.danger{color:var(--bad)}
-button:disabled{opacity:.45;cursor:default;transform:none;box-shadow:none}
-input,select,textarea{font:inherit;color:var(--text);background:rgba(0,0,0,.25);border:1px solid var(--line);border-radius:var(--r-md);padding:12px 15px;width:100%;transition:border-color .15s,box-shadow .15s}
-input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 4px rgba(124,92,255,.2)}
-input[type=checkbox]{width:auto}
-label.l{display:block;font-size:13px;color:var(--muted);margin:16px 0 7px}
-.hint{font-size:13px;color:var(--dim);margin-top:6px}
-.muted{color:var(--muted)}
+html,body{margin:0}
+body{min-height:100vh;color:var(--ink);background:var(--bg);font:14.5px/1.55 "Space Mono",ui-monospace,Menlo,Consolas,monospace;
+  background-image:radial-gradient(var(--soft) 1.2px,transparent 1.3px);background-size:18px 18px}
+h1,h2,h3,.disp{font-family:"Archivo Black","Arial Black",Impact,sans-serif;font-weight:400;letter-spacing:-.01em;text-transform:uppercase;margin:0}
+a{color:var(--ink)}
+::selection{background:var(--ink);color:var(--inv)}
+
+/* botões */
+button,.btn{font:700 13px/1 "Space Mono",monospace;text-transform:uppercase;letter-spacing:.04em;color:var(--ink);background:var(--paper);
+  border:var(--b);padding:11px 16px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;
+  text-decoration:none;box-shadow:var(--shadow-s);transition:transform .08s,box-shadow .08s;border-radius:0}
+button:hover,.btn:hover{transform:translate(-2px,-2px);box-shadow:5px 5px 0 var(--ink)}
+button:active,.btn:active{transform:translate(3px,3px);box-shadow:0 0 0 var(--ink)}
+button.primary,.btn.primary{background:var(--ink);color:var(--inv)}
+button.big{padding:16px 24px;font-size:14px}
+button.small,.btn.small{padding:7px 11px;font-size:11.5px;box-shadow:2px 2px 0 var(--ink)}
+button.ghost{box-shadow:none;border-color:transparent;background:transparent}
+button.ghost:hover{border-color:var(--ink);box-shadow:var(--shadow-s)}
+button.danger{text-decoration:underline;text-underline-offset:3px}
+button:disabled{opacity:.4;pointer-events:none}
+input,select,textarea{font:inherit;color:var(--ink);background:var(--paper);border:var(--b);padding:11px 13px;width:100%;border-radius:0;outline:none}
+input:focus,select:focus,textarea:focus{box-shadow:var(--shadow-s)}
+input[type=range]{padding:0;border:none;accent-color:var(--ink);background:transparent}
+input[type=range]:focus{box-shadow:none}
+label.l{display:block;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin:16px 0 7px}
+.hint{font-size:12.5px;color:var(--mute);margin-top:6px}
+.muted{color:var(--mute)}
 .row{display:flex;gap:10px;align-items:center}
 .wrap{flex-wrap:wrap}
 .grow{flex:1}
-.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r-xl);padding:26px;backdrop-filter:blur(14px);box-shadow:var(--shadow)}
+.card{background:var(--paper);border:var(--b);box-shadow:var(--shadow);padding:24px;position:relative}
+.tag{display:inline-block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;border:2px solid var(--ink);padding:2px 7px;background:var(--paper)}
+.tag.inv{background:var(--ink);color:var(--inv)}
+.stripes{background-image:repeating-linear-gradient(-45deg,var(--ink) 0 2px,transparent 2px 9px)}
 
 /* topo */
-header{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:12px;padding:14px 26px;background:rgba(10,11,17,.7);backdrop-filter:blur(16px);border-bottom:1px solid var(--line)}
-.logo{display:flex;align-items:center;gap:10px;font-size:21px}
-.logo i{width:30px;height:30px;border-radius:10px;background:var(--grad);display:grid;place-items:center;font-style:normal;font-size:15px;box-shadow:0 6px 18px rgba(124,92,255,.4)}
-.logo b{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+header{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:10px;padding:12px 22px;background:var(--bg);border-bottom:var(--b)}
+.logo{display:flex;align-items:center;gap:12px;text-decoration:none}
+.logo .mk{font-family:"Archivo Black";font-size:24px;background:var(--ink);color:var(--inv);padding:3px 10px 1px;position:relative;letter-spacing:.02em}
+.logo .mk:after{content:"";position:absolute;left:-4px;right:-4px;top:50%;height:3px;background:var(--bg);transform:rotate(-12deg)}
+.logo small{font-size:11px;text-transform:uppercase;letter-spacing:.1em;line-height:1.2;color:var(--ink2)}
 header .sp{flex:1}
-.chip-status{display:flex;align-items:center;gap:8px;font-size:13.5px;padding:7px 14px;border-radius:999px;background:var(--card2);border:1px solid var(--line);cursor:pointer}
-.chip-status .d{width:9px;height:9px;border-radius:50%;background:var(--dim)}
-.chip-status.ok .d{background:var(--ok);box-shadow:0 0 0 4px rgba(61,220,151,.15)}
-.chip-status.busy .d{background:var(--accent2);animation:pulse 1.4s infinite}
-.chip-status.warn .d{background:var(--warn)}
-@keyframes pulse{50%{box-shadow:0 0 0 6px rgba(177,140,255,.0),0 0 0 3px rgba(177,140,255,.35)}}
-main{max-width:1160px;margin:0 auto;padding:30px 18px 100px;display:flex;flex-direction:column;gap:24px}
+.chip-status{display:flex;align-items:center;gap:8px;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:7px 11px;border:var(--b);background:var(--paper);cursor:pointer}
+.chip-status .d{width:10px;height:10px;border:2px solid var(--ink);background:var(--paper)}
+.chip-status.ok .d{background:var(--ink)}
+.chip-status.busy .d{animation:blink 1s steps(2) infinite}
+.chip-status.warn .d{transform:rotate(45deg)}
+@keyframes blink{50%{background:var(--ink)}}
+main{max-width:1180px;margin:0 auto;padding:28px 18px 110px;display:flex;flex-direction:column;gap:28px}
 
 /* boas-vindas */
-.welcome{position:relative;overflow:hidden}
-.welcome:before{content:"";position:absolute;inset:-40% -10% auto auto;width:420px;height:420px;background:radial-gradient(circle,rgba(184,77,255,.25),transparent 65%);pointer-events:none}
-.welcome h1{font-size:28px;margin:0 0 8px}
-.welcome .lead{color:var(--muted);max-width:640px}
-.reco{margin-top:20px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;background:rgba(124,92,255,.1);border:1px solid rgba(124,92,255,.35);border-radius:var(--r-lg);padding:16px 18px}
-.reco .ic{font-size:30px}
-.alts{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
-.panel{margin-top:16px;background:rgba(0,0,0,.2);border:1px solid var(--line);border-radius:var(--r-lg);padding:18px}
-.tiers{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.welcome h1{font-size:30px;margin-bottom:8px}
+.reco{margin-top:18px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;border:var(--b);padding:16px;background:var(--bg)}
+.alts{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+.panel{margin-top:16px;border:var(--b);padding:16px;background:var(--bg)}
+.tiers{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
 @media(max-width:820px){.tiers{grid-template-columns:1fr}}
-.tier{border:1.5px solid var(--line);border-radius:var(--r-lg);padding:16px;cursor:pointer;background:var(--card);transition:border-color .15s,background .15s,transform .15s;position:relative}
-.tier:hover{transform:translateY(-2px);border-color:var(--line2)}
-.tier.on{border-color:var(--accent);background:rgba(124,92,255,.13)}
-.tier b{font-family:"Poppins";font-size:16px}
-.tier .s{font-size:13px;color:var(--muted);margin-top:4px}
-.tier .z{font-size:12.5px;color:var(--dim);margin-top:8px}
-.badge-rec{position:absolute;top:-10px;right:14px;background:var(--grad);color:#fff;font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px}
-.steps3{margin:8px 0 0;padding-left:20px;color:var(--muted);font-size:14px}
-.steps3 li{margin:5px 0}
-.prep{display:flex;align-items:center;gap:14px;margin-top:18px}
-.ring{--p:0;width:54px;height:54px;border-radius:50%;background:conic-gradient(var(--accent2) calc(var(--p)*1%),rgba(255,255,255,.08) 0);display:grid;place-items:center;flex:none}
-.ring span{width:42px;height:42px;border-radius:50%;background:#12131c;display:grid;place-items:center;font-size:12.5px;font-weight:700}
+.tier{border:var(--b);padding:14px;cursor:pointer;background:var(--paper);position:relative;transition:transform .08s,box-shadow .08s}
+.tier:hover{transform:translate(-2px,-2px);box-shadow:var(--shadow-s)}
+.tier.on{background:var(--ink);color:var(--inv)}
+.tier.on .s,.tier.on .z{color:var(--inv);opacity:.8}
+.tier b{font-family:"Archivo Black";font-weight:400;text-transform:uppercase}
+.tier .s{font-size:12.5px;color:var(--mute);margin-top:4px}
+.tier .z{font-size:11.5px;color:var(--mute);margin-top:8px}
+.badge-rec{position:absolute;top:-12px;right:10px}
+.steps3{margin:8px 0 0;padding-left:22px;font-size:13.5px}
+.prep{display:flex;align-items:center;gap:16px}
+.meter{width:64px;height:64px;border:var(--b);display:grid;place-items:center;font-family:"Archivo Black";font-size:14px;position:relative;overflow:hidden;flex:none}
+.meter i{position:absolute;left:0;bottom:0;width:100%;background:var(--ink);height:0;transition:height .4s}
+.meter span{position:relative;mix-blend-mode:difference;color:#fff}
 
 /* criar */
-.create h1{font-size:30px;margin:0 0 6px;line-height:1.2}
-.create h1 em{font-style:normal;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
-.seg2{display:inline-flex;background:rgba(0,0,0,.25);border:1px solid var(--line);border-radius:999px;padding:4px;margin:18px 0 14px}
-.seg2 button{border:none;background:transparent;color:var(--muted);padding:8px 18px}
-.seg2 button.on{background:var(--card3);color:var(--text)}
-.urlbox{display:flex;align-items:center;gap:8px;background:rgba(0,0,0,.28);border:1px solid var(--line);border-radius:999px;padding:7px 7px 7px 22px;transition:border-color .15s,box-shadow .15s}
-.urlbox:focus-within{border-color:var(--accent);box-shadow:0 0 0 4px rgba(124,92,255,.2)}
-.urlbox input{border:none;background:transparent;padding:10px 0;font-size:16.5px;box-shadow:none}
+.hero h1{font-size:clamp(28px,4.6vw,52px);line-height:.98;max-width:880px}
+.hero h1 u{text-decoration:none;background:var(--ink);color:var(--inv);padding:0 8px}
+.hero .sub{margin-top:12px;max-width:700px}
+.seg{display:inline-flex;border:var(--b);margin:20px 0 12px;box-shadow:var(--shadow-s)}
+.seg button{border:none;box-shadow:none;padding:10px 16px}
+.seg button+button{border-left:var(--b)}
+.seg button.on{background:var(--ink);color:var(--inv)}
+.seg button:hover{transform:none}
+.urlbox{display:flex;align-items:stretch;border:var(--b);box-shadow:var(--shadow);background:var(--paper)}
+.urlbox input{border:none;font-size:16px;padding:16px 18px}
 .urlbox input:focus{box-shadow:none}
-.drop{border:2px dashed var(--line2);border-radius:var(--r-lg);padding:34px;text-align:center;color:var(--muted);cursor:pointer;display:block;transition:all .15s}
-.drop:hover,.drop.over{border-color:var(--accent);background:rgba(124,92,255,.1);color:var(--text)}
-.drop .big{font-size:34px}
-.opts{display:flex;flex-wrap:wrap;gap:12px;margin-top:20px}
-.opt{background:rgba(0,0,0,.18);border:1px solid var(--line);border-radius:var(--r-lg);padding:12px 14px;display:flex;flex-direction:column;gap:8px}
-.opt .t{font-size:12.5px;color:var(--muted)}
-.chips{display:flex;gap:6px;flex-wrap:wrap}
-.chips button{padding:7px 13px;font-size:13.5px;background:transparent}
-.chips button.on{background:rgba(124,92,255,.22);border-color:rgba(124,92,255,.6);color:#fff}
-.stepper{display:flex;align-items:center;gap:10px}
-.stepper button{width:36px;height:36px;padding:0;font-size:19px}
-.stepper b{min-width:30px;text-align:center;font-size:20px;font-family:"Poppins"}
-.switch{position:relative;width:46px;height:26px;flex:none}
-.switch input{opacity:0;width:0;height:0}
-.switch span{position:absolute;inset:0;border-radius:999px;background:rgba(255,255,255,.15);transition:.2s;cursor:pointer}
-.switch span:before{content:"";position:absolute;width:20px;height:20px;left:3px;top:3px;border-radius:50%;background:#fff;transition:.2s}
-.switch input:checked+span{background:var(--accent)}
-.switch input:checked+span:before{transform:translateX(20px)}
-.tog{display:flex;align-items:center;gap:10px;font-size:14px}
-.ar{display:inline-block;border:1.5px solid currentColor;border-radius:3px;margin-right:2px;opacity:.85}
-.go{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:22px}
+.urlbox button{border:none;border-left:var(--b);box-shadow:none;padding:0 26px;font-size:14px}
+.urlbox button:hover{transform:none}
+.drop{border:3px dashed var(--ink);padding:34px;text-align:center;cursor:pointer;display:block;background:var(--bg)}
+.drop:hover,.drop.over{background:var(--ink);color:var(--inv)}
+.drop .big{font-family:"Archivo Black";font-size:34px}
+.bar{height:14px;border:var(--b);background:var(--paper)}
+.bar>div{height:100%;background:var(--ink);width:0;transition:width .4s}
 .upbar{margin-top:14px}
 
+/* estruturas */
+.sect{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap}
+.sect h2{font-size:24px}
+.sect .n{font-family:"Archivo Black";font-size:13px;border:var(--b);padding:2px 8px;background:var(--paper)}
+.structs{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:14px}
+@media(max-width:980px){.structs{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:520px){.structs{grid-template-columns:1fr}}
+.sc{border:var(--b);background:var(--paper);cursor:pointer;display:flex;flex-direction:column;transition:transform .08s,box-shadow .08s;text-align:left;padding:0;box-shadow:var(--shadow-s);font:inherit;text-transform:none;letter-spacing:0;white-space:normal;align-items:stretch;justify-content:flex-start}
+.sc:hover{transform:translate(-3px,-3px);box-shadow:var(--shadow)}
+.sc .pv{height:118px;border-bottom:var(--b);display:grid;place-items:center;background:var(--bg)}
+.sc .pv svg{height:104px;width:auto}
+.sc .bd{padding:11px 12px 13px;display:flex;flex-direction:column;gap:5px}
+.sc .nm{font-family:"Archivo Black";font-size:15px;text-transform:uppercase;display:flex;justify-content:space-between;gap:6px}
+.sc .tl{font-size:12px;line-height:1.4;color:var(--ink2)}
+.sc.on{background:var(--ink);color:var(--inv);box-shadow:var(--shadow)}
+.sc.on .tl{color:var(--inv);opacity:.85}
+.sc.on .pv{background:var(--ink)}
+.sc.on .pv svg{filter:invert(1)}
+:root[data-theme="dark"] .sc .pv svg{filter:invert(1)}
+:root[data-theme="dark"] .sc.on .pv svg{filter:none}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .sc .pv svg{filter:invert(1)} :root:not([data-theme="light"]) .sc.on .pv svg{filter:none}}
+.detail{margin-top:18px;display:grid;grid-template-columns:1fr 1.15fr;gap:0;border:var(--b);box-shadow:var(--shadow);background:var(--paper)}
+@media(max-width:820px){.detail{grid-template-columns:1fr}}
+.detail>div{padding:20px}
+.detail .left{border-right:var(--b);background:var(--bg)}
+@media(max-width:820px){.detail .left{border-right:none;border-bottom:var(--b)}}
+.detail h3{font-size:22px}
+.detail ol{margin:12px 0 0;padding:0;list-style:none;counter-reset:s}
+.detail ol li{counter-increment:s;display:flex;gap:10px;margin:8px 0;font-size:13.5px}
+.detail ol li:before{content:counter(s,decimal-leading-zero);font-family:"Archivo Black";font-size:12px;background:var(--ink);color:var(--inv);padding:1px 5px;height:fit-content}
+.ctl{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:2px solid var(--soft)}
+.ctl:last-child{border-bottom:none}
+.ctl .lb{flex:1}
+.ctl .lb b{display:block;font-size:13px;text-transform:uppercase;letter-spacing:.03em}
+.ctl .lb span{font-size:12px;color:var(--mute)}
+.ctl input[type=text]{max-width:240px}
+.sw{position:relative;width:54px;height:28px;flex:none;border:var(--b);background:var(--paper);cursor:pointer}
+.sw input{opacity:0;width:0;height:0;position:absolute}
+.sw span{position:absolute;top:3px;left:3px;width:16px;height:16px;background:var(--ink);transition:left .12s}
+.sw input:checked~span{left:29px}
+.sw input:checked~i{position:absolute;inset:0;background:var(--ink)}
+.sw input:checked~i+span{background:var(--inv)}
+.sw i{display:none}
+.sw input:checked~i{display:block}
+.music{border:var(--b);padding:12px;margin-top:10px;background:var(--bg)}
+.music .row{flex-wrap:wrap}
+.music select{flex:1;min-width:180px}
+.stepper{display:flex;align-items:center;border:var(--b)}
+.stepper button{border:none;box-shadow:none;width:38px;height:36px;padding:0;font-size:18px}
+.stepper button:hover{transform:none;background:var(--ink);color:var(--inv)}
+.stepper b{min-width:42px;text-align:center;font-family:"Archivo Black";font-size:17px;border-left:var(--b);border-right:var(--b);line-height:36px}
+
+/* opções rápidas */
+.opts{display:flex;flex-wrap:wrap;gap:16px;margin-top:22px}
+.opt{border:var(--b);padding:11px 13px;display:flex;flex-direction:column;gap:9px;background:var(--paper)}
+.opt .t{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chips button{padding:7px 10px;font-size:11.5px;box-shadow:none;border-width:2px}
+.chips button:hover{transform:none;box-shadow:var(--shadow-s)}
+.chips button.on{background:var(--ink);color:var(--inv)}
+.ar{display:inline-block;border:2px solid currentColor;margin-right:2px}
+
 /* projetos */
-.sect{display:flex;align-items:baseline;gap:10px;padding:0 6px}
-.sect h2{margin:0;font-size:20px}
 .proj{display:flex;flex-direction:column;gap:16px}
-.ph{display:flex;gap:12px;align-items:flex-start}
-.pt{font-family:"Poppins";font-size:17px;word-break:break-word}
-.ps{font-size:13px;color:var(--dim);word-break:break-all}
-.st{font-size:12.5px;padding:4px 12px;border-radius:999px;background:var(--card2);color:var(--muted);white-space:nowrap}
-.st.running,.st.queued{background:rgba(124,92,255,.18);color:#d4c6ff}
-.st.done{background:rgba(61,220,151,.14);color:var(--ok)}
-.st.error{background:rgba(255,107,125,.14);color:var(--bad)}
-.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
-.fs{display:flex;align-items:center;gap:9px;font-size:13.5px;color:var(--dim)}
-.fs i{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:var(--card2);font-style:normal;flex:none}
-.fs.on{color:var(--text)}.fs.on i{background:var(--grad);box-shadow:0 0 0 5px rgba(124,92,255,.18)}
-.fs.ok{color:var(--muted)}.fs.ok i{background:rgba(61,220,151,.18);color:var(--ok)}
-@media(max-width:680px){.flow{grid-template-columns:1fr 1fr}}
-.bar{height:10px;background:rgba(255,255,255,.07);border-radius:999px;overflow:hidden}
-.bar>div{height:100%;background:var(--grad);border-radius:999px;width:0;transition:width .5s}
-.stage{font-size:13.5px;color:var(--muted)}
-.note{background:rgba(255,195,92,.1);border:1px solid rgba(255,195,92,.3);color:#ffe0a6;border-radius:var(--r-md);padding:12px 15px;font-size:14px}
-.err{background:rgba(255,107,125,.1);border:1px solid rgba(255,107,125,.3);color:#ffc2ca;border-radius:var(--r-md);padding:13px 15px;font-size:14px}
-.err details{margin-top:8px;color:var(--muted);font-size:12.5px}
+.ph{display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap}
+.pt{font-family:"Archivo Black";font-size:18px;text-transform:uppercase;word-break:break-word;line-height:1.15}
+.ps{font-size:12px;color:var(--mute);word-break:break-all;margin-top:4px}
+.st{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:4px 9px;border:2px solid var(--ink);white-space:nowrap}
+.st.done{background:var(--ink);color:var(--inv)}
+.st.error{background:repeating-linear-gradient(-45deg,var(--ink) 0 3px,var(--paper) 3px 8px)}
+.st.error span{background:var(--paper);padding:0 3px}
+.st.running,.st.queued{animation:blink2 1.2s steps(2) infinite}
+@keyframes blink2{50%{background:var(--ink);color:var(--inv)}}
+.flow{display:grid;grid-template-columns:repeat(4,1fr);border:var(--b)}
+.fs{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;text-transform:uppercase;padding:9px 10px;color:var(--mute)}
+.fs+.fs{border-left:var(--b)}
+.fs i{font-style:normal;font-family:"Archivo Black";font-size:12px;border:2px solid currentColor;width:24px;height:24px;display:grid;place-items:center;flex:none}
+.fs.on{background:var(--ink);color:var(--inv)}
+.fs.ok{color:var(--ink)}
+@media(max-width:680px){.flow{grid-template-columns:1fr 1fr}.fs:nth-child(3){border-left:none;border-top:var(--b)}.fs:nth-child(4){border-top:var(--b)}}
+.stage{font-size:12.5px;margin-top:8px}
+.note,.err{border:var(--b);padding:12px 14px;font-size:13px;background:var(--bg)}
+.err{border-style:dashed}
+.err details{margin-top:8px;font-size:12px}
 .err pre{white-space:pre-wrap;word-break:break-word;max-height:180px;overflow:auto;margin:6px 0 0}
-.pacts{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.clips{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}
-.clip{background:rgba(0,0,0,.22);border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden;display:flex;flex-direction:column;transition:transform .15s,border-color .15s}
-.clip:hover{transform:translateY(-3px);border-color:var(--line2)}
-.media{position:relative;background:#000;aspect-ratio:9/16;display:flex;align-items:center;justify-content:center}
+.pacts{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.clips{display:grid;grid-template-columns:repeat(auto-fill,minmax(225px,1fr));gap:18px}
+.clip{border:var(--b);background:var(--paper);display:flex;flex-direction:column;box-shadow:var(--shadow-s)}
+.media{position:relative;background:#000;aspect-ratio:9/16;display:flex;align-items:center;justify-content:center;border-bottom:var(--b)}
 .r11 .media{aspect-ratio:1/1}.r45 .media{aspect-ratio:4/5}.r169 .media{aspect-ratio:16/9}
 .media video{width:100%;height:100%;object-fit:contain;background:#000}
-.media .wait{color:var(--muted);font-size:13.5px;text-align:center;padding:14px}
-.pill{position:absolute;top:10px;background:rgba(10,11,17,.72);backdrop-filter:blur(8px);border-radius:999px;padding:3px 10px;font-size:12.5px;font-weight:700;z-index:2}
-.pill.l{left:10px}.pill.r{right:10px;font-weight:500}
-.hi{color:#7dffb8}.mid{color:#ffd96b}.lo{color:#ffb0b0}
-.ci{padding:13px 14px 14px;display:flex;flex-direction:column;gap:7px;flex:1}
-.ci .t{font-weight:650;font-size:14.5px;line-height:1.35}
-.ci .r{font-size:13px;color:var(--muted)}
-.ci .acts{display:flex;gap:6px;margin-top:auto;padding-top:8px}
+.media .wait{color:#eee;font-size:12.5px;text-align:center;padding:14px;text-transform:uppercase}
+.pill{position:absolute;top:8px;background:#fff;color:#000;border:2px solid #000;padding:2px 7px;font-size:11px;font-weight:700;z-index:2}
+.pill.l{left:8px}.pill.r{right:8px}
+.ci{padding:12px;display:flex;flex-direction:column;gap:7px;flex:1}
+.ci .t{font-weight:700;font-size:13.5px;line-height:1.35}
+.ci .r{font-size:12px;color:var(--mute)}
+.ci .acts{display:flex;gap:7px;margin-top:auto;padding-top:8px}
 .ci .acts>*{flex:1}
-.mini{height:6px;background:rgba(255,255,255,.08);border-radius:9px;overflow:hidden;width:70%;margin:10px auto 0}
-.mini>div{height:100%;background:var(--grad)}
-.empty{text-align:center;color:var(--muted);padding:40px 16px}
-.empty .big{font-size:40px;margin-bottom:6px}
+.mini{height:10px;border:2px solid #eee;width:70%;margin:10px auto 0}
+.mini>div{height:100%;background:#eee}
+.empty{text-align:center;padding:40px 16px}
+.empty .big{font-family:"Archivo Black";font-size:40px}
 
 /* janelas */
-.mbg{position:fixed;inset:0;z-index:40;background:rgba(5,6,10,.65);backdrop-filter:blur(6px);display:none;align-items:flex-start;justify-content:center;overflow:auto;padding:34px 14px}
+.mbg{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.55);display:none;align-items:flex-start;justify-content:center;overflow:auto;padding:34px 14px}
 .mbg.on{display:flex}
-.modal{width:min(860px,100%);background:#12131c;border:1px solid var(--line);border-radius:var(--r-xl);box-shadow:0 30px 80px rgba(0,0,0,.6);overflow:hidden;animation:pop .18s ease-out}
-@keyframes pop{from{transform:translateY(10px) scale(.98);opacity:0}}
-.mh{display:flex;align-items:center;padding:18px 22px;border-bottom:1px solid var(--line)}
-.mh h2{flex:1;margin:0;font-size:20px}
-.mbody{padding:6px 24px 24px}
-.sec{padding:18px 0;border-bottom:1px solid var(--line)}
+.modal{width:min(880px,100%);background:var(--paper);border:var(--b);box-shadow:10px 10px 0 var(--ink);animation:pop .14s ease-out}
+@keyframes pop{from{transform:translate(8px,8px)}}
+.mh{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:var(--b);background:var(--ink);color:var(--inv)}
+.mh h2{flex:1;font-size:20px}
+.mh button{background:var(--inv);color:var(--ink);border-color:var(--inv);box-shadow:none}
+.mbody{padding:4px 22px 22px}
+.sec{padding:18px 0;border-bottom:3px solid var(--ink)}
 .sec:last-child{border-bottom:none}
-.sec h3{margin:0 0 4px;font-size:16px}
-.modes{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
+.sec h3{font-size:16px;margin-bottom:4px}
+.modes{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px}
 @media(max-width:700px){.modes{grid-template-columns:1fr}}
-.mode{border:1.5px solid var(--line);border-radius:var(--r-lg);padding:14px;cursor:pointer;background:var(--card)}
-.mode.on{border-color:var(--accent);background:rgba(124,92,255,.13)}
-.mode b{display:block;font-size:14.5px}
-.mode span{font-size:13px;color:var(--muted)}
-.styles{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:12px}
+.mode{border:var(--b);padding:12px;cursor:pointer;background:var(--paper)}
+.mode.on{background:var(--ink);color:var(--inv)}
+.mode b{display:block;font-size:13px;text-transform:uppercase}
+.mode span{font-size:12px;opacity:.8}
+.styles{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:12px}
 @media(max-width:700px){.styles{grid-template-columns:1fr 1fr}}
-.sty{border:1.5px solid var(--line);border-radius:var(--r-lg);overflow:hidden;cursor:pointer;background:#000}
-.sty.on{border-color:var(--accent);box-shadow:0 0 0 4px rgba(124,92,255,.2)}
-.sty .pv{height:92px;display:grid;place-items:center;background:linear-gradient(160deg,#2b2f3d,#14161f);font-size:21px;text-align:center;padding:6px;text-shadow:0 2px 0 #000,0 0 3px #000}
-.sty .nm{padding:7px 10px;font-size:13px;color:var(--muted);background:#12131c}
-details.adv{margin-top:6px}
-details.adv summary{cursor:pointer;color:var(--muted);padding:14px 0;font-size:14.5px;list-style:none}
-details.adv summary:before{content:"▸ ";}
-details.adv[open] summary:before{content:"▾ ";}
+.sty{border:var(--b);cursor:pointer;background:#000}
+.sty.on{box-shadow:var(--shadow-s);outline:3px solid var(--ink);outline-offset:3px}
+.sty .pv{height:88px;display:grid;place-items:center;background:#1a1a1a;font-size:20px;text-align:center;padding:6px;text-shadow:0 2px 0 #000,0 0 3px #000}
+.sty .nm{padding:6px 9px;font-size:11.5px;font-weight:700;text-transform:uppercase;background:var(--paper);color:var(--ink);border-top:var(--b)}
+details.adv summary{cursor:pointer;padding:16px 0;font-weight:700;text-transform:uppercase;font-size:12.5px;list-style:none}
+details.adv summary:before{content:"[+] ";}
+details.adv[open] summary:before{content:"[–] ";}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 16px}
 @media(max-width:600px){.grid2{grid-template-columns:1fr}}
-.model{display:flex;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);font-size:14px}
+.model{display:flex;gap:12px;align-items:center;padding:9px 0;border-bottom:2px solid var(--soft);font-size:13px}
 .model:last-child{border-bottom:none}
-.sys{font-size:13px;display:grid;grid-template-columns:150px 1fr;gap:6px 12px;word-break:break-all}
-.sys div:nth-child(odd){color:var(--muted)}
-.editbox{display:grid;grid-template-columns:240px 1fr;gap:20px;padding:22px}
+.sys{font-size:12px;display:grid;grid-template-columns:150px 1fr;gap:6px 12px;word-break:break-all}
+.sys div:nth-child(odd){font-weight:700;text-transform:uppercase}
+.editbox{display:grid;grid-template-columns:240px 1fr;gap:20px;padding:20px}
 @media(max-width:640px){.editbox{grid-template-columns:1fr}}
-.editbox video{width:100%;border-radius:var(--r-md);background:#000;max-height:430px}
+.editbox video{width:100%;background:#000;max-height:430px;border:var(--b)}
 .nudge{display:flex;gap:5px;margin-top:7px}
-.nudge button{padding:5px 10px;font-size:12.5px}
-.textbox{font-size:13.5px;color:var(--muted);background:rgba(0,0,0,.25);border:1px solid var(--line);border-radius:var(--r-md);padding:12px;max-height:150px;overflow:auto}
-.mf{display:flex;gap:10px;justify-content:flex-end;padding:16px 22px;border-top:1px solid var(--line)}
+.nudge button{padding:5px 8px;font-size:11px;box-shadow:none;border-width:2px}
+.textbox{font-size:12.5px;border:var(--b);padding:10px;max-height:150px;overflow:auto;background:var(--bg)}
+.items{border:var(--b);background:var(--bg);padding:6px 10px;font-size:12.5px}
+.items div{padding:5px 0;border-bottom:2px solid var(--soft)}
+.items div:last-child{border-bottom:none}
+.mf{display:flex;gap:12px;justify-content:flex-end;padding:14px 18px;border-top:var(--b)}
+.toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(30px);opacity:0;pointer-events:none;background:var(--ink);color:var(--inv);border:var(--b);
+  padding:12px 18px;z-index:60;max-width:90vw;box-shadow:6px 6px 0 var(--mute);transition:.2s;font-weight:700;font-size:13px}
+.toast.on{opacity:1;transform:translateX(-50%)}
 @media(max-width:600px){
   body{overflow-x:hidden}
-  header{padding:12px 14px;gap:6px}
-  .logo{font-size:17px;gap:8px}
-  .logo i{width:26px;height:26px}
-  header button{padding:8px 9px}
-  .chip-status{white-space:nowrap;padding:6px 11px;font-size:12.5px}
-  .hide-sm{display:none}
-  main{padding:18px 12px 80px;gap:18px}
-  .card{padding:18px;border-radius:22px}
-  .create h1{font-size:24px}
-  .welcome h1{font-size:23px}
-  .seg2{display:flex;width:100%}
-  .seg2 button{flex:1;padding:8px 10px}
-  .urlbox{flex-direction:column;align-items:stretch;border-radius:20px;padding:8px}
-  .urlbox input{padding:10px 12px}
+  header{padding:10px 12px;gap:6px}
+  .logo small,.hide-sm{display:none}
+  .chip-status{padding:6px 8px;font-size:10.5px}
+  main{padding:18px 14px 80px;gap:22px}
+  .card{padding:16px;box-shadow:4px 4px 0 var(--ink)}
+  .seg{display:flex;width:100%}.seg button{flex:1;padding:10px 8px}
+  .urlbox{flex-direction:column}
+  .urlbox button{border-left:none;border-top:var(--b);padding:14px}
   .opt{width:100%}
   .reco button{width:100%}
+  .sect h2{flex-basis:100%;font-size:20px}
 }
-.toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(20px);opacity:0;pointer-events:none;background:#1d1f2b;border:1px solid var(--line2);padding:12px 20px;border-radius:999px;z-index:60;max-width:90vw;box-shadow:0 12px 40px rgba(0,0,0,.5);transition:.25s}
-.toast.on{opacity:1;transform:translateX(-50%)}
 </style>
 </head>
 <body>
 <header>
-  <div class="logo"><i>✂</i><span>Clip<b>Forge</b></span></div>
+  <a class="logo" href="#" onclick="window.scrollTo({top:0,behavior:'smooth'});return false"><span class="mk">KERF</span><small>cortes virais<br>no seu computador</small></a>
   <div class="sp"></div>
   <div class="chip-status" id="status" onclick="openSettings()"><span class="d"></span><span id="status-t">Carregando…</span></div>
-  <button class="ghost" onclick="openSettings()" title="Ajustes">⚙<span class="hide-sm"> Ajustes</span></button>
-  <button class="ghost" onclick="quit()" title="Fechar o ClipForge">⏻</button>
+  <button class="small" onclick="toggleTheme()" title="Modo claro / escuro" id="theme-btn">◐</button>
+  <button class="small" onclick="openSettings()" title="Ajustes">Ajustes</button>
+  <button class="small" onclick="quit()" title="Fechar o KERF">⏻</button>
 </header>
 
 <main>
   <!-- Boas-vindas: só na primeira vez -->
   <section class="card welcome" id="welcome" style="display:none">
-    <h1>Bem-vindo ao ClipForge 👋</h1>
-    <div class="lead">Antes de começar, o ClipForge precisa preparar a inteligência que assiste aos seus vídeos e escolhe os melhores momentos. É só um clique.</div>
+    <span class="tag inv">Primeiro passo</span>
+    <h1 style="margin-top:12px">Vamos preparar o KERF</h1>
+    <div class="sub">O KERF precisa da inteligência que assiste aos seus vídeos e escolhe os melhores momentos. É só um clique.</div>
     <div class="reco">
-      <div class="ic">💻</div>
       <div class="grow"><b id="reco-title">Analisando o seu computador…</b><div class="hint" id="reco-sub" style="margin:2px 0 0"></div></div>
-      <button class="primary big" onclick="setupLocal()">Preparar o ClipForge</button>
+      <button class="primary big" onclick="setupLocal()">Preparar o KERF</button>
     </div>
     <div class="alts">
-      <button class="small ghost" onclick="togglePanel('p-tiers')">Escolher outra qualidade</button>
-      <button class="small ghost" onclick="togglePanel('p-online')">Usar pela internet (mais leve para o computador)</button>
-      <button class="small ghost" onclick="setupNone()">Começar sem inteligência artificial</button>
+      <button class="small" onclick="togglePanel('p-tiers')">Outra qualidade</button>
+      <button class="small" onclick="togglePanel('p-online')">Usar pela internet</button>
+      <button class="small" onclick="setupNone()">Sem inteligência artificial</button>
     </div>
     <div class="panel" id="p-tiers" style="display:none"><div class="tiers" id="tiers-welcome"></div></div>
     <div class="panel" id="p-online" style="display:none">
-      <b>Usar o serviço gratuito Groq</b>
+      <b>Serviço gratuito Groq</b>
       <ol class="steps3">
         <li>Abra <a href="https://console.groq.com/keys" target="_blank">console.groq.com/keys</a> e entre com sua conta Google.</li>
-        <li>Clique em <b>Create API Key</b> e copie o código que aparece.</li>
-        <li>Cole o código abaixo:</li>
+        <li>Clique em <b>Create API Key</b> e copie o código.</li>
+        <li>Cole abaixo:</li>
       </ol>
-      <div class="row" style="margin-top:10px"><input id="groq-key" type="password" placeholder="Cole aqui o código (começa com gsk_)"><button class="primary" onclick="setupOnline()">Usar</button></div>
+      <div class="row" style="margin-top:10px"><input id="groq-key" type="password" placeholder="Código (começa com gsk_)"><button class="primary" onclick="setupOnline()">Usar</button></div>
     </div>
   </section>
 
   <!-- Preparando (downloads da primeira vez) -->
   <section class="card" id="preparing" style="display:none">
-    <div class="prep" style="margin:0">
-      <div class="ring" id="prep-ring"><span id="prep-pct">0%</span></div>
-      <div class="grow"><b class="display" id="prep-title">Preparando o ClipForge…</b><div class="hint" id="prep-sub" style="margin:2px 0 0"></div></div>
+    <div class="prep">
+      <div class="meter"><i id="prep-fill"></i><span id="prep-pct">0%</span></div>
+      <div class="grow"><b class="disp" id="prep-title">Preparando o KERF…</b><div class="hint" id="prep-sub" style="margin:2px 0 0"></div></div>
     </div>
   </section>
 
   <!-- Criar -->
-  <section class="card create">
-    <h1>Transforme vídeos longos em <em>clipes virais</em></h1>
-    <div class="muted">Cole o link de um vídeo do YouTube, Instagram, TikTok, Twitch… ou envie um arquivo.</div>
-    <div class="seg2"><button class="on" id="tab-link" onclick="srcTab('link')">🔗 Link</button><button id="tab-file" onclick="srcTab('file')">📁 Arquivo<span class="hide-sm"> do computador</span></button></div>
+  <section class="card hero">
+    <span class="tag">01 — Vídeo</span>
+    <h1 style="margin-top:14px">Vídeo longo entra. <u>Clipes que prendem</u> saem.</h1>
+    <div class="sub">Cole o link de um vídeo do YouTube, Instagram, TikTok, Twitch… ou envie um arquivo.</div>
+    <div class="seg"><button class="on" id="tab-link" onclick="srcTab('link')">Link</button><button id="tab-file" onclick="srcTab('file')">Arquivo</button></div>
     <div id="src-link">
-      <div class="urlbox"><input id="url" placeholder="Cole o link do vídeo aqui" onkeydown="if(event.key==='Enter')submitUrl()"><button class="primary" id="go" onclick="submitUrl()">✂ Criar clipes</button></div>
+      <div class="urlbox"><input id="url" placeholder="https://…" onkeydown="if(event.key==='Enter')submitUrl()"><button class="primary" id="go" onclick="submitUrl()">Cortar ✂</button></div>
     </div>
     <div id="src-file" style="display:none">
-      <label class="drop" id="drop" for="file"><div class="big">⬆</div><b>Arraste o vídeo para cá</b><div class="hint">ou clique para escolher no computador</div></label>
+      <label class="drop" id="drop" for="file"><div class="big">↓</div><b>Arraste o vídeo para cá</b><div class="hint">ou clique para escolher no computador</div></label>
       <input type="file" id="file" accept="video/*,audio/*" style="display:none" onchange="upload(this.files[0])">
     </div>
     <div class="bar upbar" id="upbar" style="display:none"><div></div></div>
     <div class="opts">
-      <div class="opt"><div class="t">Quantos clipes</div><div class="stepper"><button onclick="bump(-1)">−</button><b id="q-count">6</b><button onclick="bump(1)">+</button></div></div>
-      <div class="opt"><div class="t">Duração de cada clipe</div><div class="chips" id="q-dur"></div></div>
+      <div class="opt"><div class="t" id="q-count-t">Quantos clipes</div><div class="stepper"><button onclick="bump(-1)">−</button><b id="q-count">6</b><button onclick="bump(1)">+</button></div></div>
+      <div class="opt" id="o-dur"><div class="t">Duração</div><div class="chips" id="q-dur"></div></div>
       <div class="opt"><div class="t">Formato</div><div class="chips" id="q-aspect"></div></div>
-      <div class="opt"><div class="t">Enquadramento</div><div class="chips" id="q-crop"></div></div>
-      <div class="opt"><div class="t">Legendas</div><label class="tog"><span class="switch"><input type="checkbox" id="q-subs" onchange="quickSet({subtitles:this.checked})"><span></span></span><span id="q-subs-t">Ligadas</span></label></div>
+      <div class="opt" id="o-crop"><div class="t">Enquadramento</div><div class="chips" id="q-crop"></div></div>
+      <div class="opt" id="o-subs"><div class="t">Legendas</div><label class="row" style="gap:10px"><span class="sw"><input type="checkbox" id="q-subs" onchange="quickSet({subtitles:this.checked})"><i></i><span></span></span><span id="q-subs-t" style="font-size:12px;font-weight:700;text-transform:uppercase">Ligadas</span></label></div>
     </div>
   </section>
 
-  <div class="sect"><h2>Seus clipes</h2><span class="muted" id="count"></span></div>
-  <div id="projects" style="display:flex;flex-direction:column;gap:18px"></div>
+  <!-- Estruturas -->
+  <section>
+    <div class="sect"><span class="tag">02 — Estrutura de edição</span><h2 class="grow">Como cada corte vai ser editado</h2></div>
+    <div class="hint" style="margin-top:6px">Modelos inspirados em canais de cortes profissionais. Vale para os próximos vídeos; dá para trocar em cada clipe depois.</div>
+    <div class="structs" id="structs"></div>
+    <div class="detail" id="detail"></div>
+  </section>
+
+  <section>
+    <div class="sect"><span class="tag">03 — Resultado</span><h2 class="grow">Seus clipes</h2><span class="n" id="count"></span></div>
+    <div id="projects" style="display:flex;flex-direction:column;gap:22px;margin-top:14px"></div>
+  </section>
 </main>
 
 <!-- Ajustes -->
 <div class="mbg" id="settings" onclick="if(event.target===this)closeSettings()">
   <div class="modal">
-    <div class="mh"><h2>Ajustes</h2><span class="hint" style="margin:0 12px 0 0">Tudo é salvo automaticamente</span><button class="ghost" onclick="closeSettings()">✕</button></div>
+    <div class="mh"><h2>Ajustes</h2><span class="hide-sm" style="font-size:11px;text-transform:uppercase">Salvo automaticamente</span><button class="small" onclick="closeSettings()">✕</button></div>
     <div class="mbody">
       <div class="sec">
         <h3>Inteligência artificial</h3>
         <div class="hint" style="margin:0">É ela que assiste ao vídeo e escolhe os melhores momentos.</div>
         <div class="modes" id="modes">
-          <div class="mode" data-v="local"><b>💻 No meu computador</b><span>Grátis e funciona sem internet</span></div>
-          <div class="mode" data-v="online"><b>🌐 Pela internet</b><span>Mais leve, precisa de internet</span></div>
-          <div class="mode" data-v="none"><b>🎯 Sem inteligência artificial</b><span>Mais rápido, cortes mais simples</span></div>
+          <div class="mode" data-v="local"><b>No meu computador</b><span>Grátis e funciona sem internet</span></div>
+          <div class="mode" data-v="online"><b>Pela internet</b><span>Mais leve, precisa de internet</span></div>
+          <div class="mode" data-v="none"><b>Sem IA</b><span>Mais rápido, cortes mais simples</span></div>
         </div>
-        <div id="m-local" style="margin-top:14px"><div class="tiers" id="tiers-settings"></div><div class="hint" id="tier-hint"></div></div>
+        <div id="m-local" style="margin-top:16px"><div class="tiers" id="tiers-settings"></div><div class="hint" id="tier-hint"></div></div>
         <div id="m-online" style="margin-top:14px">
           <div class="hint" style="margin:0 0 8px">Código do serviço gratuito Groq (<a href="https://console.groq.com/keys" target="_blank">pegue o seu aqui</a>):</div>
           <div class="row"><input id="s-groq" type="password" placeholder="gsk_..."><button onclick="saveOnline()">Salvar</button></div>
@@ -315,7 +391,8 @@ details.adv[open] summary:before{content:"▾ ";}
       </div>
 
       <div class="sec">
-        <h3>Aparência das legendas</h3>
+        <h3>Legendas do estilo Clássico</h3>
+        <div class="hint" style="margin:0">As outras estruturas têm legendas próprias.</div>
         <div class="styles" id="styles"></div>
         <div class="grid2">
           <div><label class="l">Posição</label><div class="chips" id="s-pos"></div></div>
@@ -330,6 +407,13 @@ details.adv[open] summary:before{content:"▾ ";}
           <div><label class="l">Posição</label><div class="chips" id="s-wm-pos"></div></div>
         </div>
         <div class="hint">Aparece semitransparente em todos os clipes. Deixe em branco para não usar.</div>
+      </div>
+
+      <div class="sec">
+        <h3>Músicas de fundo</h3>
+        <div class="hint" style="margin:0">Suas músicas ficam aqui e podem ser escolhidas em cada estrutura. Use músicas que você tem direito de usar.</div>
+        <div id="music-lib" style="margin-top:10px"></div>
+        <div class="row" style="margin-top:10px"><button class="small" onclick="$('#music-file').click()">＋ Enviar música</button><span class="hint" style="margin:0">MP3, M4A, WAV, OGG, OPUS ou FLAC</span></div>
       </div>
 
       <div class="sec">
@@ -349,12 +433,12 @@ details.adv[open] summary:before{content:"▾ ";}
 
       <details class="adv" id="adv">
         <summary>Opções avançadas (para quem entende de tecnologia)</summary>
-        <div class="hint" style="margin-top:0">O ClipForge ajusta tudo isto sozinho. Só altere se souber o que está fazendo.</div>
+        <div class="hint" style="margin-top:0">O KERF ajusta tudo isto sozinho. Só altere se souber o que está fazendo.</div>
         <div class="grid2">
           <div><label class="l">Serviço online de IA (endereço)</label><input id="a-llm-base" onchange="setCfg({llm_api_base:this.value})"></div>
           <div><label class="l">Modelo de IA online</label><input id="a-llm-model" onchange="setCfg({llm_api_model:this.value})"></div>
           <div><label class="l">Chave da IA online</label><input id="a-llm-key" type="password" onchange="setCfg({llm_api_key:this.value})"></div>
-          <div><label class="l">Transcrição pela internet</label><select id="a-stt" onchange="setCfg({stt_provider:this.value})"><option value="local">No computador</option><option value="api">Pela internet</option></select></div>
+          <div><label class="l">Transcrição</label><select id="a-stt" onchange="setCfg({stt_provider:this.value})"><option value="local">No computador</option><option value="api">Pela internet</option></select></div>
           <div><label class="l">Serviço de transcrição (endereço)</label><input id="a-stt-base" onchange="setCfg({stt_api_base:this.value})"></div>
           <div><label class="l">Modelo de transcrição online</label><input id="a-stt-model" onchange="setCfg({stt_api_model:this.value})"></div>
           <div><label class="l">Chave da transcrição online</label><input id="a-stt-key" type="password" onchange="setCfg({stt_api_key:this.value})"></div>
@@ -364,8 +448,8 @@ details.adv[open] summary:before{content:"▾ ";}
           <div><label class="l">Argumentos extras do yt-dlp</label><input id="a-ytdlp" placeholder="--cookies-from-browser firefox" onchange="setCfg({ytdlp_args:this.value})"></div>
         </div>
         <div class="row wrap" style="margin-top:14px">
-          <button class="small" onclick="testLlm()">🔌 Testar a IA</button>
-          <button class="small" onclick="updateYtdlp()">⟳ Atualizar o baixador de vídeos</button>
+          <button class="small" onclick="testLlm()">Testar a IA</button>
+          <button class="small" onclick="updateYtdlp()">Atualizar o baixador</button>
           <span class="hint" id="adv-out" style="margin:0"></span>
         </div>
         <label class="l">Arquivos de inteligência artificial no computador</label>
@@ -384,35 +468,42 @@ details.adv[open] summary:before{content:"▾ ";}
 
 <!-- Ajustar clipe -->
 <div class="mbg" id="editor" onclick="if(event.target===this)closeEditor()">
-  <div class="modal" style="width:min(760px,100%)">
-    <div class="mh"><h2>Ajustar clipe</h2><button class="ghost" onclick="closeEditor()">✕</button></div>
+  <div class="modal" style="width:min(800px,100%)">
+    <div class="mh"><h2>Ajustar clipe</h2><button class="small" onclick="closeEditor()">✕</button></div>
     <div class="editbox" id="ed-box">
       <div id="ed-vbox"><video id="ed-video" controls></video></div>
       <div>
         <label class="l" style="margin-top:0">Título para a postagem</label><input id="ed-title">
-        <label class="l">Enquadramento</label><div class="chips" id="ed-framing"></div><div class="hint" id="ed-framing-hint"></div>
-        <div class="grid2">
-          <div><label class="l">Começa em</label><input id="ed-start"><div class="nudge"><button onclick="nudge('ed-start',-5)">−5s</button><button onclick="nudge('ed-start',-1)">−1s</button><button onclick="nudge('ed-start',1)">+1s</button><button onclick="nudge('ed-start',5)">+5s</button></div></div>
-          <div><label class="l">Termina em</label><input id="ed-end"><div class="nudge"><button onclick="nudge('ed-end',-5)">−5s</button><button onclick="nudge('ed-end',-1)">−1s</button><button onclick="nudge('ed-end',1)">+1s</button><button onclick="nudge('ed-end',5)">+5s</button></div></div>
+        <label class="l">Estrutura de edição</label><div class="chips" id="ed-struct"></div><div class="hint" id="ed-struct-hint"></div>
+        <div id="ed-ctx-box"><label class="l">Texto do meme</label><textarea id="ed-ctx" rows="3" placeholder="Minha mãe: …&#10;Eu:"></textarea></div>
+        <div id="ed-framing-box"><label class="l">Enquadramento</label><div class="chips" id="ed-framing"></div><div class="hint" id="ed-framing-hint"></div></div>
+        <div id="ed-times">
+          <div class="grid2">
+            <div><label class="l">Começa em</label><input id="ed-start"><div class="nudge"><button onclick="nudge('ed-start',-5)">−5s</button><button onclick="nudge('ed-start',-1)">−1s</button><button onclick="nudge('ed-start',1)">+1s</button><button onclick="nudge('ed-start',5)">+5s</button></div></div>
+            <div><label class="l">Termina em</label><input id="ed-end"><div class="nudge"><button onclick="nudge('ed-end',-5)">−5s</button><button onclick="nudge('ed-end',-1)">−1s</button><button onclick="nudge('ed-end',1)">+1s</button><button onclick="nudge('ed-end',5)">+5s</button></div></div>
+          </div>
+          <div class="hint" id="ed-len"></div>
         </div>
-        <div class="hint" id="ed-len"></div>
+        <div id="ed-items-box"><label class="l">Momentos da lista</label><div class="items" id="ed-items"></div></div>
         <label class="l">O que é falado</label><div class="textbox" id="ed-text"></div>
       </div>
     </div>
     <div class="mf"><button onclick="closeEditor()">Cancelar</button><button class="primary" onclick="saveEdit()">Salvar e gerar de novo</button></div>
   </div>
 </div>
+<input type="file" id="music-file" accept="audio/*,.mp3,.m4a,.wav,.ogg,.opus,.flac" style="display:none" onchange="uploadMusic(this.files[0])">
+<audio id="music-preview"></audio>
 <div class="toast" id="toast"></div>
 
 <script>
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let CFG = null, MODELS = null, MACHINE = null, STATE = {projects: [], downloads: {}};
+let CFG = null, MODELS = null, MACHINE = null, STATE = {projects: [], downloads: {}}, STRUCTS = [], MUSIC = [];
 
 const DURS = [['Curtos', 15, 30], ['Médios', 30, 60], ['Longos', 60, 90]];
 const ASPECTS = [['9:16','Vertical',9,16], ['1:1','Quadrado',12,12], ['16:9','Horizontal',16,9]];
 const CROPS = [['face','Automático'], ['center','Centralizar'], ['blur','Vídeo inteiro']];
-const FRAMINGS = [['auto','Automático','O ClipForge decide: segue quem fala, junta duas pessoas, divide a tela ou mostra o vídeo inteiro'], ['speaker','Seguir quem fala','Corta para a pessoa que está falando'], ['split','Tela dividida','Duas pessoas, uma em cima e outra embaixo'], ['center','Centralizar','Recorte fixo no meio da imagem'], ['fit','Vídeo inteiro','Mostra a imagem toda com fundo desfocado']];
+const FRAMINGS = [['auto','Automático','O KERF decide: segue quem fala, junta duas pessoas, divide a tela ou mostra o vídeo inteiro'], ['speaker','Seguir quem fala','Corta para a pessoa que está falando'], ['split','Tela dividida','Duas pessoas, uma em cima e outra embaixo'], ['center','Centralizar','Recorte fixo no meio da imagem'], ['fit','Vídeo inteiro','Mostra a imagem toda com fundo desfocado']];
 const STYLES = [
   {id:'classic', name:'Clássico', font:'Anton', color:'#FFFFFF', hl:'#FFE000', upper:true},
   {id:'modern', name:'Moderno', font:'Poppins', color:'#FFFFFF', hl:'#B18CFF', upper:false},
@@ -422,6 +513,29 @@ const STYLES = [
 const SIZES = [['Pequeno',70],['Médio',90],['Grande',115]];
 const POSITIONS = [['bottom','Embaixo'],['middle','No meio'],['top','Em cima']];
 const WM_POSITIONS = [['top','Em cima'],['middle','No meio'],['bottom','Embaixo']];
+
+/** Desenho de cada estrutura (celular em traço preto). */
+const PHONE = (inner) => `<svg viewBox="0 0 64 112" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="#000" stroke-width="2.5"><rect x="2" y="2" width="60" height="108" fill="#fff"/>${inner}</svg>`;
+const PREVIEW = {
+  classic: PHONE(`<circle cx="32" cy="42" r="13"/><path d="M14 96c2-16 34-16 36 0"/><rect x="12" y="76" width="40" height="8" fill="#000"/>`),
+  turbo: PHONE(`<circle cx="32" cy="40" r="15"/><path d="M10 98c3-20 41-20 44 0"/><rect x="12" y="72" width="40" height="6" fill="#000"/><rect x="18" y="80" width="28" height="6" fill="#000"/><path d="M6 8l8 0M6 8l0 8M58 8l-8 0M58 8l0 8" stroke-width="2"/>`),
+  conversa: PHONE(`<circle cx="32" cy="34" r="12"/><path d="M14 74c2-16 34-16 36 0"/><rect x="8" y="80" width="34" height="5" fill="#000"/><rect x="8" y="88" width="26" height="5" fill="#000"/><rect x="8" y="96" width="30" height="5" fill="#000"/>`),
+  react_split: PHONE(`<rect x="2" y="2" width="60" height="36" fill="#fff"/><circle cx="32" cy="18" r="8"/><rect x="12" y="34" width="40" height="8" fill="#000"/><path d="M2 42h60" /><path d="M8 100l12-30 10 18 10-12 16 24" /><rect x="16" y="70" width="32" height="5" fill="#000"/>`),
+  react_destaque: PHONE(`<rect x="8" y="12" width="48" height="30" fill="#fff"/><circle cx="32" cy="27" r="7"/><rect x="2" y="48" width="60" height="34" fill="#000"/><rect x="40" y="70" width="18" height="10" fill="#fff"/><rect x="14" y="90" width="36" height="8" fill="#000"/>`),
+  cinema: PHONE(`<circle cx="40" cy="40" r="16"/><path d="M14 104c4-24 48-24 52 0"/><rect x="7" y="18" width="14" height="4" fill="#000"/><rect x="7" y="25" width="10" height="4" fill="#000"/><rect x="7" y="32" width="16" height="4" fill="#000"/><rect x="7" y="39" width="12" height="4" fill="#000"/>`),
+  meme: PHONE(`<rect x="2" y="2" width="60" height="108" fill="#000"/><rect x="2" y="30" width="60" height="22" fill="#fff"/><rect x="8" y="35" width="48" height="4" fill="#000"/><rect x="12" y="43" width="40" height="4" fill="#000"/><rect x="2" y="54" width="60" height="32" fill="#fff"/><circle cx="32" cy="70" r="8"/>`),
+  top: PHONE(`<rect x="12" y="8" width="40" height="7" fill="#000"/><text x="8" y="34" font-size="9" font-family="monospace" fill="#000" stroke="none">1.</text><rect x="18" y="28" width="26" height="5" fill="#000"/><text x="8" y="46" font-size="9" font-family="monospace" fill="#000" stroke="none">2.</text><rect x="18" y="40" width="20" height="5" fill="#000"/><text x="8" y="58" font-size="9" font-family="monospace" fill="#000" stroke="none">3.</text><circle cx="40" cy="80" r="12"/>`),
+};
+const CTL = {
+  cut_pauses: ['Cortar pausas', 'Uma fala emenda na outra, sem silêncio'],
+  reactions: ['Planos de reação', 'Câmera em quem ri ou escuta durante falas longas'],
+  emphasis_zoom: ['Zoom de ênfase', 'Zoom alternado nos cortes e aproximação nas frases fortes'],
+  speaker_colors: ['Cor por pessoa', 'Cada pessoa tem a sua cor de legenda'],
+  censor: ['Censurar palavrões', 'Escreve com números: c4r4lh0, p0rr4'],
+  title: ['Título na tela', 'Usa o título do clipe escolhido pela IA'],
+  grade: ['Cor de cinema', 'Mais contraste, cantos escuros e nitidez'],
+  captions: ['Legendas da fala', 'Mostra o que está sendo dito'],
+};
 
 function toast(msg, ms=3500){ const t=$('#toast'); t.textContent=msg; t.classList.add('on'); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('on'), ms); }
 async function api(path, opts={}){
@@ -438,10 +552,17 @@ const gb = mb => (mb/1000).toFixed(1).replace('.',',')+' GB';
 let saveTimer = null;
 function setCfg(patch){ Object.assign(CFG, patch); clearTimeout(saveTimer); saveTimer = setTimeout(()=>api('/api/config',{method:'POST',body:CFG}).catch(e=>toast(e.message)), 250); renderAll(); }
 
+// ---------- Tema ----------
+function toggleTheme(){
+  const root = document.documentElement;
+  const dark = root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+  root.dataset.theme = dark ? 'light' : 'dark';
+  try { localStorage.setItem('kerf-theme', root.dataset.theme); } catch (e) {}
+}
+
 // ---------- Situação ----------
 function installed(kind, file){ return !!MODELS && MODELS[kind].some(m=>m.installed && m.file===file); }
 function activeDownloads(){ return Object.values(STATE.downloads||{}).filter(d=>!d.done); }
-/** Já escolheu como trabalhar? (os arquivos que faltarem são baixados sozinhos) */
 function configured(){
   if (!CFG || !MODELS) return true;
   const stt = CFG.stt_provider==='api' ? !!CFG.stt_api_key : (!!CFG.tier || installed('whisper', CFG.whisper_model));
@@ -453,23 +574,21 @@ function tierInfo(id){ return MACHINE?.tiers.find(t=>t.id===id); }
 
 function renderStatus(){
   const s = $('#status'), t = $('#status-t'), dls = activeDownloads();
-  if (!configured()){ s.className='chip-status warn'; t.textContent='Configure para começar'; }
+  if (!configured()){ s.className='chip-status warn'; t.textContent='Configure'; }
   else if (dls.length){
     const tot = dls.reduce((a,d)=>a+(d.total||0),0), got = dls.reduce((a,d)=>a+d.downloaded,0);
-    s.className='chip-status busy'; t.textContent = 'Preparando… '+(tot?Math.round(got/tot*100):0)+'%';
-  } else { s.className='chip-status ok'; t.textContent='Pronto para criar'; }
+    s.className='chip-status busy'; t.textContent = 'Preparando '+(tot?Math.round(got/tot*100):0)+'%';
+  } else { s.className='chip-status ok'; t.textContent='Pronto'; }
   $('#welcome').style.display = configured() ? 'none' : '';
-  // Progresso da preparação (downloads da primeira vez)
   const prep = $('#preparing');
   if (configured() && dls.length){
     const tot = dls.reduce((a,d)=>a+(d.total||0),0), got = dls.reduce((a,d)=>a+d.downloaded,0), p = tot?got/tot*100:0;
-    prep.style.display=''; $('#prep-title').textContent='Preparando o ClipForge…'; $('#prep-ring').style.setProperty('--p', p.toFixed(0)); $('#prep-pct').textContent = p.toFixed(0)+'%';
-    $('#prep-sub').textContent = `Baixando a inteligência artificial: ${gb(got/1e6)} de ${gb(tot/1e6)}. Só acontece uma vez. Você já pode colar um link: o vídeo começa assim que terminar.`;
+    prep.style.display=''; $('#prep-title').textContent='Preparando o KERF…'; $('#prep-fill').style.height = p.toFixed(0)+'%'; $('#prep-pct').textContent = p.toFixed(0)+'%';
+    $('#prep-sub').textContent = `Baixando a inteligência artificial: ${gb(got/1e6)} de ${gb(tot/1e6)}. Só acontece uma vez. Você já pode colar um link.`;
   } else {
-    // Download que falhou e o arquivo ainda não está no computador
     const failed = Object.values(STATE.downloads||{}).filter(d=>d.done && d.error && !installed(d.kind, d.file));
     if (configured() && failed.length){
-      prep.style.display=''; $('#prep-title').textContent='A preparação não terminou'; $('#prep-ring').style.setProperty('--p', 0); $('#prep-pct').textContent = '!';
+      prep.style.display=''; $('#prep-title').textContent='A preparação não terminou'; $('#prep-fill').style.height='0'; $('#prep-pct').textContent = '!';
       $('#prep-sub').innerHTML = 'Não foi possível baixar a inteligência artificial. Verifique sua internet. <button class="small" style="margin-left:6px" onclick="retryDownloads()">Tentar de novo</button>';
     } else prep.style.display='none';
   }
@@ -484,7 +603,7 @@ async function retryDownloads(){
 function tierCards(el, selected, onPick){
   const rec = MACHINE?.recommended;
   el.innerHTML = (MACHINE?.tiers||[]).map(t=>`<div class="tier ${t.id===selected?'on':''}" onclick="${onPick}('${t.id}')">
-    ${t.id===rec?'<div class="badge-rec">Ideal para o seu PC</div>':''}
+    ${t.id===rec?'<span class="tag inv badge-rec">Ideal para o seu PC</span>':''}
     <b>${esc(t.name)}</b><div class="s">${esc(t.desc)}</div><div class="z">Download único de ${gb(t.size_mb)} · ${t.min_ram_gb} GB de memória ou mais</div></div>`).join('');
 }
 function renderWelcome(){
@@ -497,7 +616,7 @@ function renderWelcome(){
 function togglePanel(id){ ['p-tiers','p-online'].forEach(p=>$('#'+p).style.display = p===id && $('#'+p).style.display==='none' ? '' : 'none'); }
 async function setup(body, msg){ try { await api('/api/setup',{method:'POST',body}); await refresh(); toast(msg, 5000); } catch(e){ toast(e.message); } }
 function setupLocal(tier){ setup({mode:'local', tier: typeof tier==='string' ? tier : undefined}, 'Tudo certo! Os arquivos estão sendo baixados. Você já pode colar um link.'); }
-function setupOnline(){ setup({mode:'online', key:$('#groq-key').value}, 'Pronto! O ClipForge vai usar o serviço online.'); }
+function setupOnline(){ setup({mode:'online', key:$('#groq-key').value}, 'Pronto! O KERF vai usar o serviço online.'); }
 function setupNone(){ setup({mode:'none'}, 'Pronto! Os cortes serão escolhidos automaticamente.'); }
 
 // ---------- Opções rápidas ----------
@@ -505,32 +624,106 @@ function quickSet(p){ setCfg(p); }
 function bump(d){ setCfg({max_clips: Math.min(30, Math.max(1, (CFG.max_clips||6)+d))}); }
 function chips(el, items, isOn, fn){ el.innerHTML = items.map((it,i)=>`<button class="${isOn(it)?'on':''}" onclick="${fn}(${i})">${it.html}</button>`).join(''); }
 function renderQuick(){
+  const st = CFG.structure || 'classic';
   $('#q-count').textContent = CFG.max_clips;
-  chips($('#q-dur'), DURS.map(([l,a,b])=>({html:`${l} <span class="muted" style="font-size:12px">${a}–${b}s</span>`,a,b})), d=>d.a===CFG.min_len && d.b===CFG.max_len, 'setDur');
+  $('#q-count-t').textContent = st==='top' ? 'Quantas listas' : 'Quantos clipes';
+  chips($('#q-dur'), DURS.map(([l,a,b])=>({html:`${l} ${a}–${b}s`,a,b})), d=>d.a===CFG.min_len && d.b===CFG.max_len, 'setDur');
   chips($('#q-aspect'), ASPECTS.map(([v,l,w,h])=>({v,html:`<span class="ar" style="width:${w}px;height:${h}px"></span> ${l}`})), x=>x.v===CFG.aspect, 'setAspect');
   chips($('#q-crop'), CROPS.map(([v,l])=>({v,html:l})), x=>x.v===CFG.crop_mode, 'setCrop');
   $('#q-subs').checked = !!CFG.subtitles; $('#q-subs-t').textContent = CFG.subtitles ? 'Ligadas' : 'Desligadas';
+  // Enquadramento e legendas gerais só valem no Clássico; meme e lista têm duração própria
+  $('#o-crop').style.display = st==='classic' ? '' : 'none';
+  $('#o-subs').style.display = st==='classic' ? '' : 'none';
+  $('#o-dur').style.display = (st==='meme'||st==='top') ? 'none' : '';
 }
 function setDur(i){ setCfg({min_len:DURS[i][1], max_len:DURS[i][2]}); }
 function setAspect(i){ setCfg({aspect:ASPECTS[i][0]}); }
 function setCrop(i){ setCfg({crop_mode:CROPS[i][0]}); }
+
+// ---------- Estruturas ----------
+const structInfo = id => STRUCTS.find(s=>s.info.id===id);
+function optsOf(id){ return {...(structInfo(id)?.opts || {}), ...((CFG.styles||{})[id] || {})}; }
+function renderStructs(){
+  if (!STRUCTS.length) return;
+  const cur = CFG.structure || 'classic';
+  $('#structs').innerHTML = STRUCTS.map((s,i)=>`<button class="sc ${s.info.id===cur?'on':''}" onclick="pickStruct('${s.info.id}')">
+    <div class="pv">${PREVIEW[s.info.id]||''}</div>
+    <div class="bd"><div class="nm"><span>${esc(s.info.name)}</span><span>${String(i+1).padStart(2,'0')}</span></div><div class="tl">${esc(s.info.tagline)}</div></div></button>`).join('');
+  renderDetail();
+}
+function renderDetail(){
+  const id = CFG.structure || 'classic', s = structInfo(id); if (!s) return;
+  const o = optsOf(id), c = s.info.controls;
+  const toggles = c.filter(k=>CTL[k]).map(k=>`<div class="ctl"><div class="lb"><b>${CTL[k][0]}</b><span>${CTL[k][1]}</span></div>
+      <label class="sw"><input type="checkbox" ${o[k]?'checked':''} onchange="setStyle('${id}',{${k}:this.checked})"><i></i><span></span></label></div>`).join('');
+  const texts = [
+    c.includes('name_tag') ? `<div class="ctl"><div class="lb"><b>Nome embaixo da webcam</b><span>Opcional (ex.: o nome do streamer)</span></div><input type="text" value="${esc(o.name_tag||'')}" placeholder="Nome" onchange="setStyle('${id}',{name_tag:this.value})"></div>` : '',
+    c.includes('list_title') ? `<div class="ctl"><div class="lb"><b>Título da lista</b><span>Vazio = "Melhores momentos"</span></div><input type="text" value="${esc(o.list_title||'')}" placeholder="Melhores momentos de…" onchange="setStyle('${id}',{list_title:this.value})"></div>` : '',
+    c.includes('items') ? `<div class="ctl"><div class="lb"><b>Momentos por lista</b><span>De 2 a 8</span></div><div class="stepper"><button onclick="setStyle('${id}',{items:Math.max(2,${o.items||4}-1)})">−</button><b>${o.items||4}</b><button onclick="setStyle('${id}',{items:Math.min(8,${o.items||4}+1)})">+</button></div></div>` : '',
+  ].join('');
+  let music = '';
+  if (c.includes('music')){
+    const opts = ['<option value="">Sem música</option>'].concat(MUSIC.map(m=>`<option value="${esc(m.name)}" ${m.name===o.music?'selected':''}>${esc(m.name)}</option>`));
+    if (o.music && !MUSIC.some(m=>m.name===o.music)) opts.push(`<option value="${esc(o.music)}" selected>${esc(o.music)} (não encontrada)</option>`);
+    music = `<div class="music"><div class="lb" style="margin-bottom:8px"><b style="font-size:13px;text-transform:uppercase">Música de fundo</b><div class="hint" style="margin:2px 0 0">Abaixa sozinha quando alguém fala.</div></div>
+      <div class="row"><select onchange="setStyle('${id}',{music:this.value})">${opts.join('')}</select>
+      <button class="small" onclick="previewMusic('${esc(o.music||'')}')" ${o.music?'':'disabled'}>▶ Ouvir</button>
+      <button class="small" onclick="$('#music-file')._for='${id}';$('#music-file').click()">＋ Enviar</button></div>
+      <div class="row" style="margin-top:10px"><span style="font-size:11px;font-weight:700;text-transform:uppercase">Volume</span><input type="range" min="0.05" max="0.6" step="0.01" value="${o.music_volume||0.2}" onchange="setStyle('${id}',{music_volume:Number(this.value)})" ${o.music?'':'disabled'}><span style="font-size:12px;min-width:38px">${Math.round((o.music_volume||0.2)*100)}%</span></div></div>`;
+  }
+  const none = !c.length ? `<div class="hint">Este estilo usa o enquadramento, as legendas e a duração escolhidos acima e em Ajustes.</div>` : '';
+  $('#detail').innerHTML = `<div class="left"><span class="tag inv">${esc(s.info.best_for)}</span><h3 style="margin-top:12px">${esc(s.info.name)}</h3><div class="hint" style="margin-top:4px">${esc(s.info.tagline)}</div>
+      <ol>${s.info.steps.map(x=>`<li>${esc(x)}</li>`).join('')}</ol></div>
+    <div><span class="tag">Opções</span><div style="margin-top:8px">${toggles}${texts}${music}${none}</div></div>`;
+}
+function pickStruct(id){ setCfg({structure:id}); }
+function setStyle(id, patch){
+  const styles = {...(CFG.styles||{})};
+  styles[id] = {...optsOf(id), ...patch};
+  setCfg({styles});
+}
+function previewMusic(name){
+  const a = $('#music-preview');
+  if (!name) return;
+  if (!a.paused && a.dataset.n===name){ a.pause(); return; }
+  a.src = '/music/'+encodeURIComponent(name); a.dataset.n=name; a.currentTime=0; a.play().catch(()=>toast('Não foi possível tocar a música.'));
+}
+async function loadMusic(){ try { MUSIC = (await api('/api/music')).music; } catch(e){ MUSIC = []; } renderMusicLib(); }
+function renderMusicLib(){
+  const el = $('#music-lib'); if (!el) return;
+  el.innerHTML = MUSIC.length ? MUSIC.map(m=>`<div class="model"><div class="grow">${esc(m.name)} <span class="hint">· ${(m.size/1e6).toFixed(1).replace('.',',')} MB</span></div>
+    <button class="small" onclick="previewMusic('${esc(m.name)}')">▶</button><button class="small ghost danger" onclick="delMusic('${esc(m.name)}')">Remover</button></div>`).join('')
+    : '<div class="hint">Nenhuma música ainda.</div>';
+}
+function uploadMusic(f){
+  if (!f) return;
+  const target = $('#music-file')._for; $('#music-file')._for = null;
+  const fd = new FormData(); fd.append('file', f);
+  toast('Enviando música…', 8000);
+  api('/api/music', {method:'POST', body:fd}).then(async r=>{
+    $('#music-file').value=''; await loadMusic();
+    if (target) setStyle(target, {music:r.name}); else renderDetail();
+    toast('Música adicionada!');
+  }).catch(e=>toast(e.message));
+}
+async function delMusic(name){ if(!confirm('Remover '+name+'?')) return; await api('/api/music/delete',{method:'POST',body:{name}}).catch(e=>toast(e.message)); await loadMusic(); renderDetail(); }
 
 // ---------- Projetos ----------
 function srcTab(t){
   $('#tab-link').classList.toggle('on', t==='link'); $('#tab-file').classList.toggle('on', t==='file');
   $('#src-link').style.display = t==='link'?'':'none'; $('#src-file').style.display = t==='file'?'':'none';
 }
-function guard(){ if (!configured()){ toast('Primeiro escolha como o ClipForge vai trabalhar (logo acima).'); window.scrollTo({top:0,behavior:'smooth'}); return false; } return true; }
+function guard(){ if (!configured()){ toast('Primeiro escolha como o KERF vai trabalhar (logo acima).'); window.scrollTo({top:0,behavior:'smooth'}); return false; } return true; }
 async function submitUrl(){
   if (!guard()) return;
   const url = $('#url').value.trim(); if(!url) return toast('Cole o link de um vídeo.');
   if (!/^https?:\/\//i.test(url)) return toast('Isso não parece um link. Ele deve começar com https://');
-  try { await api('/api/projects', {method:'POST', body:{url}}); $('#url').value=''; toast('Começamos! Acompanhe logo abaixo.'); poll(); }
+  try { await api('/api/projects', {method:'POST', body:{url, structure: CFG.structure}}); $('#url').value=''; toast('Começamos! Acompanhe logo abaixo.'); poll(); }
   catch(e){ toast(e.message); }
 }
 function upload(f){
   if(!f || !guard()) return;
-  const fd = new FormData(); fd.append('file', f);
+  const fd = new FormData(); fd.append('structure', CFG.structure || ''); fd.append('file', f);
   const xhr = new XMLHttpRequest(); const bar=$('#upbar'); bar.style.display='block';
   xhr.upload.onprogress = e => { if(e.lengthComputable) bar.firstElementChild.style.width=(e.loaded/e.total*100)+'%'; };
   xhr.onload = () => { bar.style.display='none'; $('#file').value=''; if(xhr.status>=300){ try{toast(JSON.parse(xhr.responseText).error)}catch{toast('Não foi possível enviar o arquivo.')} } else toast('Vídeo enviado! Acompanhe logo abaixo.'); poll(); };
@@ -554,8 +747,7 @@ function downloadAll(id){
 }
 const fileName = c => (c.title||c.name).replace(/[\\/:*?"<>|]/g,'').slice(0,60) || c.name;
 function aspectClass(){ const a=CFG?.aspect; return a==='1:1'?'r11':a==='4:5'?'r45':a==='16:9'?'r169':''; }
-function scoreClass(s){ return s>=80?'hi':s>=60?'mid':'lo'; }
-const FLOW = [['⬇','Baixar'], ['🎙','Ouvir'], ['🧠','Escolher momentos'], ['🎬','Criar clipes']];
+const FLOW = [['1','Baixar'], ['2','Ouvir'], ['3','Escolher'], ['4','Editar']];
 function stepOf(p){
   const s = p.stage||'';
   if (/Gerando|Renderizando/.test(s)) return 3;
@@ -564,25 +756,27 @@ function stepOf(p){
   if (/Baixando|Juntando|baixador|login/.test(s)) return 0;
   return p.clips.length ? 3 : 0;
 }
-const STATUS = {queued:'Na fila', running:'Criando…', done:'Pronto', error:'Não deu certo', cancelled:'Cancelado'};
-const friendlyStage = s => (s||'').replace('Transcrevendo (whisper.cpp)','Ouvindo o vídeo').replace(/Transcrevendo via API.*/,'Ouvindo o vídeo').replace(/^Transcrevendo$/,'Ouvindo o vídeo').replace('Extraindo áudio','Preparando o áudio').replace(/Analisando com IA.*/,'A inteligência artificial está assistindo').replace(/Buscando mais trechos.*/,'Procurando mais momentos bons').replace('Carregando modelo de IA local','Ligando a inteligência artificial').replace('Conectando à IA','Conectando à inteligência artificial').replace(/Gerando clipe (\d+)\/(\d+)/,'Criando o clipe $1 de $2');
+const STATUS = {queued:'Na fila', running:'Criando', done:'Pronto', error:'Não deu certo', cancelled:'Cancelado'};
+const structName = id => structInfo(id)?.info.name || (id ? id : 'Clássico');
+const friendlyStage = s => (s||'').replace('Transcrevendo (whisper.cpp)','Ouvindo o vídeo').replace(/Transcrevendo via API.*/,'Ouvindo o vídeo').replace(/^Transcrevendo$/,'Ouvindo o vídeo').replace('Extraindo áudio','Preparando o áudio').replace(/Analisando com IA.*/,'A inteligência artificial está assistindo').replace(/Buscando mais trechos.*/,'Procurando mais momentos bons').replace('Carregando modelo de IA local','Ligando a inteligência artificial').replace('Conectando à IA','Conectando à inteligência artificial').replace(/Gerando clipe (\d+)\/(\d+)/,'Editando o clipe $1 de $2');
 
 function clipHtml(p, c){
   const base = `/files/${p.id}/${c.name}`;
   let media;
   if (c.status==='done') media = `<video controls preload="none" poster="${base}.jpg?v=${c.rev}" src="${base}.mp4?v=${c.rev}"></video>`;
-  else if (c.status==='rendering') media = `<div class="wait">Criando… ${Math.round(c.progress*100)}%<div class="mini"><div style="width:${c.progress*100}%"></div></div></div>`;
-  else if (c.status==='error') media = `<div class="wait" style="color:var(--bad)">Não foi possível criar este clipe.<br>Clique em ✎ Ajustar e tente de novo.</div>`;
-  else media = `<div class="wait">Na fila…</div>`;
+  else if (c.status==='rendering') media = `<div class="wait">Editando ${Math.round(c.progress*100)}%<div class="mini"><div style="width:${c.progress*100}%"></div></div></div>`;
+  else if (c.status==='error') media = `<div class="wait">Não foi possível criar este clipe.<br>Clique em Ajustar e tente de novo.</div>`;
+  else media = `<div class="wait">Na fila</div>`;
+  const len = c.items && c.items.length ? c.items.reduce((a,m)=>a+(m.end-m.start),0) : c.end-c.start;
   return `<div class="clip ${aspectClass()}" data-k="${p.id}-${c.index}">
-    <div class="media"><div class="pill l ${scoreClass(c.score)}" title="Chance de viralizar">🔥 ${c.score}</div><div class="pill r">${(c.end-c.start).toFixed(0)}s</div>${media}</div>
+    <div class="media"><div class="pill l" title="Chance de viralizar">★ ${c.score}</div><div class="pill r">${len.toFixed(0)}s</div>${media}</div>
     <div class="ci">
       <div class="t">${esc(c.title)}</div>
-      ${c.framing_desc && c.status==='done'?`<div class="r" title="Enquadramento escolhido para este clipe">🎥 ${esc(c.framing_desc)}</div>`:''}
+      ${c.framing_desc && c.status==='done'?`<div class="r" title="Como o clipe foi editado">▣ ${esc(c.framing_desc)}</div>`:''}
       ${c.reason?`<div class="r">${esc(c.reason)}</div>`:''}
       <div class="acts">
-        ${c.status==='done'?`<a class="btn small primary" style="background:var(--grad);border:none;color:#fff" href="${base}.mp4?v=${c.rev}" download="${esc(fileName(c))}.mp4">⬇ Baixar</a>`:''}
-        <button class="small" onclick="openEditor('${p.id}',${c.index})">✎ Ajustar</button>
+        ${c.status==='done'?`<a class="btn small primary" href="${base}.mp4?v=${c.rev}" download="${esc(fileName(c))}.mp4">Baixar</a>`:''}
+        <button class="small" onclick="openEditor('${p.id}',${c.index})">Ajustar</button>
         <button class="small" onclick="copyTitle('${p.id}',${c.index})" title="Copiar título">⧉</button>
       </div>
     </div></div>`;
@@ -593,8 +787,8 @@ function copyTitle(id, idx){ const [,c]=findClip(id,idx); navigator.clipboard?.w
 const cards = new Map();
 function renderProjects(){
   const root = $('#projects'); const list = STATE.projects;
-  $('#count').textContent = list.length ? `${list.length} ${list.length>1?'vídeos':'vídeo'}` : '';
-  if (!list.length){ root.innerHTML = '<div class="card empty"><div class="big">🎬</div>Seus clipes vão aparecer aqui.<br>Cole um link acima para começar.</div>'; cards.clear(); return; }
+  $('#count').textContent = list.length ? `${list.length} ${list.length>1?'vídeos':'vídeo'}` : '0';
+  if (!list.length){ root.innerHTML = '<div class="card empty"><div class="big">✂</div>Seus clipes vão aparecer aqui. Cole um link acima para começar.</div>'; cards.clear(); return; }
   if (root.querySelector('.empty')) root.innerHTML='';
   const seen = new Set();
   list.forEach((p, i) => {
@@ -602,16 +796,17 @@ function renderProjects(){
     let el = cards.get(p.id);
     if (!el){
       el = document.createElement('div'); el.className='card proj';
-      el.innerHTML = `<div class="ph"><div class="grow"><div class="pt"></div><div class="ps"></div></div><span class="st"></span></div>
-        <div class="prog"><div class="flow"></div><div class="bar" style="margin-top:14px"><div></div></div><div class="stage" style="margin-top:7px"></div></div>
+      el.innerHTML = `<div class="ph"><div class="grow"><div class="pt"></div><div class="ps"></div></div><span class="tag sname"></span><span class="st"></span></div>
+        <div class="prog"><div class="flow"></div><div class="bar" style="margin-top:14px"><div></div></div><div class="stage"></div></div>
         <div class="msgs"></div><div class="pacts"></div><div class="clips"></div>`;
       cards.set(p.id, el);
     }
     if (root.children[i] !== el) root.insertBefore(el, root.children[i] || null);
     el.querySelector('.pt').textContent = p.title || p.source;
+    el.querySelector('.sname').textContent = structName(p.structure);
     const done = p.clips.filter(c=>c.status==='done').length;
     el.querySelector('.ps').textContent = [p.duration?`Vídeo de ${fmt(p.duration).replace(/\.\d$/,'')}`:'', done?`${done} ${done>1?'clipes':'clipe'}`:''].filter(Boolean).join(' · ');
-    const st = el.querySelector('.st'); st.className='st '+p.status; st.textContent=STATUS[p.status]||p.status;
+    const st = el.querySelector('.st'); st.className='st '+p.status; st.innerHTML=`<span>${STATUS[p.status]||p.status}</span>`;
     const active = p.status==='running'||p.status==='queued';
     el.querySelector('.prog').style.display = active ? '' : 'none';
     if (active){
@@ -626,18 +821,18 @@ function renderProjects(){
     const key = errTxt+'|'+noteTxt+'|'+(p.error_detail||'');
     if (msgs._k !== key){
       msgs._k = key;
-      msgs.innerHTML = (errTxt ? `<div class="err">😕 ${esc(errTxt)}${p.error_detail?`<details><summary>Detalhes técnicos</summary><pre>${esc(p.error_detail)}</pre></details>`:''}</div>` : '') + (noteTxt ? `<div class="note">💡 ${esc(noteTxt)}</div>` : '');
+      msgs.innerHTML = (errTxt ? `<div class="err">✕ ${esc(errTxt)}${p.error_detail?`<details><summary>Detalhes técnicos</summary><pre>${esc(p.error_detail)}</pre></details>`:''}</div>` : '') + (noteTxt ? `<div class="note">! ${esc(noteTxt)}</div>` : '');
       msgs.style.display = (errTxt||noteTxt) ? '' : 'none';
     }
     const acts = el.querySelector('.pacts'); const actsKey = p.status+done;
     if (acts._k !== actsKey){
       acts._k = actsKey;
       acts.innerHTML = (active ? `<button class="small" onclick="act('${p.id}','cancel')">■ Parar</button>` :
-        (done>1?`<button class="small primary" onclick="downloadAll('${p.id}')">⬇ Baixar todos</button>`:'') +
-        `<button class="small" onclick="act('${p.id}','retry')" title="Escolhe os momentos de novo com as opções atuais">⟳ ${p.status==='done'?'Criar outros clipes':'Tentar de novo'}</button>`) +
-        `<button class="small ghost" onclick="act('${p.id}','open')">📂 Abrir pasta</button><span class="grow"></span>` +
-        (active?'':`<button class="small ghost" onclick="act('${p.id}','retranscribe')" title="Ouve o vídeo de novo do zero">🎙 Ouvir de novo</button>`) +
-        `<button class="small ghost danger" onclick="act('${p.id}','delete')">🗑 Apagar</button>`;
+        (done>1?`<button class="small primary" onclick="downloadAll('${p.id}')">Baixar todos</button>`:'') +
+        `<button class="small" onclick="act('${p.id}','retry')" title="Escolhe os momentos de novo">⟳ ${p.status==='done'?'Outros clipes':'Tentar de novo'}</button>`) +
+        `<button class="small ghost" onclick="act('${p.id}','open')">Abrir pasta</button><span class="grow"></span>` +
+        (active?'':`<button class="small ghost" onclick="act('${p.id}','retranscribe')" title="Ouve o vídeo de novo do zero">Ouvir de novo</button>`) +
+        `<button class="small ghost danger" onclick="act('${p.id}','delete')">Apagar</button>`;
     }
     const sig = JSON.stringify(p.clips.map(c=>[c.status,c.rev,c.title,c.start,c.end,c.framing_desc,c.status==='rendering'?Math.round(c.progress*20):0])) + aspectClass();
     const box = el.querySelector('.clips');
@@ -646,7 +841,7 @@ function renderProjects(){
       const old = new Map([...box.children].map(n => [n.dataset.k, n]));
       const nodes = [];
       p.clips.slice().sort((a,b)=>b.score-a.score).forEach(c => {
-        const k = `${p.id}-${c.index}`; const s = JSON.stringify([c.status,c.rev,c.title,c.start,c.end,c.status==='rendering'?Math.round(c.progress*20):0]);
+        const k = `${p.id}-${c.index}`; const s = JSON.stringify([c.status,c.rev,c.title,c.start,c.end,c.framing_desc,c.status==='rendering'?Math.round(c.progress*20):0]);
         let n = old.get(k);
         if (!n || n._s !== s){ const t=document.createElement('div'); t.innerHTML=clipHtml(p,c); n=t.firstElementChild; n._s=s; }
         nodes.push(n);
@@ -662,15 +857,30 @@ let EDIT = null;
 function openEditor(id, idx){
   const [p, c] = findClip(id, idx); if (!c) return;
   if (p.status==='running'||p.status==='queued') return toast('Espere este vídeo terminar para ajustar os clipes.');
-  EDIT = {id, idx};
+  EDIT = {id, idx, structure: c.structure || p.structure || 'classic', hasItems: !!(c.items && c.items.length)};
   $('#ed-title').value = c.title; $('#ed-start').value = fmt(c.start); $('#ed-end').value = fmt(c.end);
-  EDIT.framing = c.framing || 'auto'; renderFraming(c);
+  $('#ed-ctx').value = c.context || '';
+  EDIT.framing = c.framing || 'auto';
+  $('#ed-items').innerHTML = (c.items||[]).map((m,i)=>`<div><b>${i+1}.</b> ${esc(m.label||'—')} <span class="muted">(${fmt(m.start)}–${fmt(m.end)})</span></div>`).join('');
+  renderEditStruct(c);
   $('#ed-text').textContent = c.text || '';
   const v = $('#ed-video'), has = c.status==='done';
   v.src = has ? `/files/${id}/${c.name}.mp4?v=${c.rev}` : '';
   $('#ed-vbox').style.display = has ? '' : 'none'; $('#ed-box').style.gridTemplateColumns = has ? '' : '1fr';
   edLen(); $('#editor').classList.add('on');
 }
+function renderEditStruct(c){
+  const st = EDIT.structure;
+  chips($('#ed-struct'), STRUCTS.map(s=>({v:s.info.id, html:esc(s.info.name)})), x=>x.v===st, 'pickEditStruct');
+  $('#ed-struct-hint').textContent = structInfo(st)?.info.tagline || '';
+  $('#ed-ctx-box').style.display = st==='meme' ? '' : 'none';
+  $('#ed-framing-box').style.display = st==='classic' ? '' : 'none';
+  const list = st==='top' && EDIT.hasItems;
+  $('#ed-times').style.display = list ? 'none' : '';
+  $('#ed-items-box').style.display = list ? '' : 'none';
+  renderFraming(c);
+}
+function pickEditStruct(i){ EDIT.structure = STRUCTS[i].info.id; const [,c]=findClip(EDIT.id, EDIT.idx); renderEditStruct(c); }
 function closeEditor(){ $('#editor').classList.remove('on'); $('#ed-video').pause(); }
 function nudge(id, d){ const el=$('#'+id); el.value = fmt(Math.max(0, parseT(el.value)+d)); edLen(); }
 function edLen(){ const d = parseT($('#ed-end').value)-parseT($('#ed-start').value); $('#ed-len').textContent = isFinite(d) ? `Duração: ${d.toFixed(1).replace('.',',')} segundos` : ''; }
@@ -678,11 +888,11 @@ function edLen(){ const d = parseT($('#ed-end').value)-parseT($('#ed-start').val
 function renderFraming(c){
   chips($('#ed-framing'), FRAMINGS.map(([v,l])=>({v,html:l})), x=>x.v===EDIT.framing, 'pickFraming');
   const f = FRAMINGS.find(x=>x[0]===EDIT.framing);
-  $('#ed-framing-hint').textContent = (f?f[2]:'') + (c && c.framing_desc && EDIT.framing==='auto' ? ` · Escolhido neste clipe: ${c.framing_desc}` : '');
+  $('#ed-framing-hint').textContent = (f?f[2]:'') + (c && c.framing_desc && EDIT.framing==='auto' ? ` · Neste clipe: ${c.framing_desc}` : '');
 }
 function pickFraming(i){ EDIT.framing = FRAMINGS[i][0]; const [,c]=findClip(EDIT.id, EDIT.idx); renderFraming(c); }
 async function saveEdit(){
-  try { await api(`/api/projects/${EDIT.id}/clips/${EDIT.idx}/render`, {method:'POST', body:{start:parseT($('#ed-start').value), end:parseT($('#ed-end').value), title:$('#ed-title').value, framing:EDIT.framing}}); closeEditor(); toast('Criando o clipe de novo…'); poll(); }
+  try { await api(`/api/projects/${EDIT.id}/clips/${EDIT.idx}/render`, {method:'POST', body:{start:parseT($('#ed-start').value), end:parseT($('#ed-end').value), title:$('#ed-title').value, framing:EDIT.framing, structure:EDIT.structure, context:$('#ed-ctx').value}}); closeEditor(); toast('Editando o clipe de novo…'); poll(); }
   catch(e){ toast(e.message); }
 }
 
@@ -705,10 +915,11 @@ function renderSettings(){
   chips($('#s-size'), SIZES.map(([l,v])=>({v,html:l})), x=>Math.abs(x.v-CFG.sub_size)<8, 'pickSize');
   chips($('#s-wm-pos'), WM_POSITIONS.map(([v,l])=>({v,html:l})), x=>x.v===(CFG.watermark_position||'top'), 'pickWmPos');
   if (document.activeElement!==$('#s-wm')) $('#s-wm').value = CFG.watermark||'';
-  chips($('#s-quality'), [['1080','Máxima nitidez (4K na origem, 60 fps)'],['720','Mais rápida']].map(([v,l])=>({v,html:l})), x=>x.v===CFG.quality, 'pickQuality');
+  chips($('#s-quality'), [['1080','Máxima nitidez (60 fps)'],['720','Mais rápida']].map(([v,l])=>({v,html:l})), x=>x.v===CFG.quality, 'pickQuality');
   $('#s-lang').value = CFG.language; if (document.activeElement!==$('#s-extra')) $('#s-extra').value = CFG.extra_prompt||'';
   const adv = {'a-llm-base':'llm_api_base','a-llm-model':'llm_api_model','a-llm-key':'llm_api_key','a-stt':'stt_provider','a-stt-base':'stt_api_base','a-stt-model':'stt_api_model','a-stt-key':'stt_api_key','a-ctx':'llm_ctx','a-threads':'threads','a-min':'min_len','a-max':'max_len','a-ytdlp':'ytdlp_args'};
   for (const [id,f] of Object.entries(adv)) if (document.activeElement!==$('#'+id)) $('#'+id).value = CFG[f];
+  renderMusicLib();
 }
 document.querySelectorAll('#modes .mode').forEach(x=>x.onclick=()=>pickMode(x.dataset.v));
 function pickMode(v){
@@ -723,17 +934,15 @@ function pickPos(i){ setCfg({sub_position:POSITIONS[i][0]}); }
 function pickWmPos(i){ setCfg({watermark_position:WM_POSITIONS[i][0]}); }
 function pickSize(i){ setCfg({sub_size:SIZES[i][1]}); }
 function pickQuality(i){ setCfg({quality:['1080','720'][i]}); }
-async function openSettings(){
-  $('#settings').classList.add('on'); renderSettings(); renderModels(); loadSys();
-}
-function closeSettings(){ $('#settings').classList.remove('on'); }
+async function openSettings(){ $('#settings').classList.add('on'); renderSettings(); renderModels(); loadSys(); }
+function closeSettings(){ $('#settings').classList.remove('on'); $('#music-preview').pause(); }
 function renderModels(){
   if (!MODELS) return;
   const d = MODELS.downloads || {};
   const rows = [...MODELS.whisper.map(m=>['whisper',m]), ...MODELS.llm.map(m=>['llm',m])].map(([k,m])=>{
     const dl = d[k+'/'+m.file];
-    let right = m.installed ? `<span style="color:var(--ok)">✔ no computador</span> <button class="small ghost danger" onclick="delModel('${k}','${esc(m.file)}')">Remover</button>`
-      : dl && !dl.done ? `<span class="muted">${dl.total?Math.round(dl.downloaded/dl.total*100):0}%</span>`
+    let right = m.installed ? `<span class="tag inv">No computador</span> <button class="small ghost danger" onclick="delModel('${k}','${esc(m.file)}')">Remover</button>`
+      : dl && !dl.done ? `<span class="tag">${dl.total?Math.round(dl.downloaded/dl.total*100):0}%</span>`
       : `<button class="small" onclick="dlModel('${k}','${esc(m.id)}')">Baixar</button>`;
     return `<div class="model"><div class="grow">${esc(m.name)} <span class="hint">· ${gb(m.size_mb)}</span></div>${right}</div>`;
   });
@@ -745,19 +954,19 @@ async function delModel(kind, file){ if(!confirm('Remover '+file+' do computador
 async function testLlm(){
   $('#adv-out').textContent='Testando…';
   try { const r = await api('/api/test-llm',{method:'POST',body:CFG}); $('#adv-out').textContent='✔ A IA respondeu: '+r.reply.slice(0,80); }
-  catch(e){ $('#adv-out').textContent='✖ '+e.message; }
+  catch(e){ $('#adv-out').textContent='✕ '+e.message; }
 }
-async function updateYtdlp(){ $('#adv-out').textContent='Atualizando…'; try { const r=await api('/api/ytdlp-update',{method:'POST'}); $('#adv-out').textContent='✔ '+r.output; loadSys(); } catch(e){ $('#adv-out').textContent='✖ '+e.message; } }
+async function updateYtdlp(){ $('#adv-out').textContent='Atualizando…'; try { const r=await api('/api/ytdlp-update',{method:'POST'}); $('#adv-out').textContent='✔ '+r.output; loadSys(); } catch(e){ $('#adv-out').textContent='✕ '+e.message; } }
 async function loadSys(){
   try { const s = await api('/api/system');
     $('#sysinfo').innerHTML = [['Versão',s.version],['Memória',MACHINE?.ram_gb?MACHINE.ram_gb+' GB':'?'],['ffmpeg',s.ffmpeg],['yt-dlp',s.ytdlp],['whisper.cpp',s.whisper],['llama.cpp',s.llama],['AVX2',s.avx2?'sim':'não'],['Pasta de dados',s.data_dir]]
       .map(([a,b])=>`<div>${a}</div><div>${esc(b)}</div>`).join('');
   } catch(e){}
 }
-async function quit(){ if(!confirm('Fechar o ClipForge? Vídeos em andamento serão interrompidos.')) return; await api('/api/shutdown',{method:'POST'}).catch(()=>{}); document.body.innerHTML='<main><div class="card empty"><div class="big">👋</div>O ClipForge foi fechado. Pode fechar esta aba.</div></main>'; }
+async function quit(){ if(!confirm('Fechar o KERF? Vídeos em andamento serão interrompidos.')) return; await api('/api/shutdown',{method:'POST'}).catch(()=>{}); document.body.innerHTML='<main><div class="card empty"><div class="big">KERF</div>O KERF foi fechado. Pode fechar esta aba.</div></main>'; }
 
 // ---------- Atualização ----------
-function renderAll(){ if (!CFG) return; renderQuick(); renderStatus(); renderWelcome(); renderSettings(); }
+function renderAll(){ if (!CFG) return; renderQuick(); renderStatus(); renderWelcome(); renderStructs(); renderSettings(); }
 async function refreshModels(){ MODELS = await api('/api/models'); renderModels(); }
 let pollTimer = null, lastDl = '';
 async function poll(){
@@ -772,6 +981,9 @@ async function poll(){
 }
 async function refresh(){
   [CFG, MACHINE] = await Promise.all([api('/api/config'), MACHINE ? Promise.resolve(MACHINE) : api('/api/machine')]);
+  if (!CFG.styles) CFG.styles = {};
+  STRUCTS = (await api('/api/structures')).structures;
+  await loadMusic();
   await refreshModels(); renderAll(); renderProjects();
 }
 (async () => { await refresh(); poll(); })();

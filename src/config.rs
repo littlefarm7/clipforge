@@ -34,6 +34,10 @@ pub struct Config {
     pub crop_mode: String,
     /// "1080" ou "720"
     pub quality: String,
+    /// Estrutura de edição padrão dos novos projetos (ver `structures`)
+    pub structure: String,
+    /// Opções de cada estrutura (as que faltarem usam o padrão da estrutura)
+    pub styles: std::collections::BTreeMap<String, crate::structures::StyleOpts>,
 
     // Legendas
     pub subtitles: bool,
@@ -82,6 +86,8 @@ impl Default for Config {
             aspect: "9:16".into(),
             crop_mode: "face".into(),
             quality: "1080".into(),
+            structure: "turbo".into(),
+            styles: Default::default(),
             subtitles: true,
             sub_font: "Anton".into(),
             sub_size: 90,
@@ -124,6 +130,14 @@ impl Config {
                 .map(|n| n.get() as u32)
                 .unwrap_or(4)
                 .clamp(1, 16)
+        }
+    }
+
+    /// Opções da estrutura `id` (as salvas pela pessoa ou as padrão).
+    pub fn style(&self, id: &str) -> crate::structures::StyleOpts {
+        match self.styles.get(id) {
+            Some(saved) => crate::structures::effective(id, saved),
+            None => crate::structures::defaults(id),
         }
     }
 
