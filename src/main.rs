@@ -52,6 +52,10 @@ pub static FONTS: &[(&str, &[u8])] = &[
         include_bytes!("../assets/fonts/ArchivoBlack-Regular.ttf"),
     ),
     (
+        "SpaceGrotesk.ttf",
+        include_bytes!("../assets/fonts/SpaceGrotesk.ttf"),
+    ),
+    (
         "SpaceMono-Regular.ttf",
         include_bytes!("../assets/fonts/SpaceMono-Regular.ttf"),
     ),

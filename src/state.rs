@@ -68,6 +68,8 @@ pub struct Project {
     pub language: String,
     /// Estrutura de edição escolhida ao criar o projeto
     pub structure: String,
+    /// IA que escolheu os trechos (nome para mostrar)
+    pub ai_model: String,
     pub clips: Vec<Clip>,
 }
 

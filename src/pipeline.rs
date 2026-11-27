@@ -407,6 +407,15 @@ async fn run_full(app: &App, id: &str, cancel: &CancellationToken) -> Result<()>
             cfg.llm_provider = "none".into();
         }
     }
+    // Qual IA escolheu os trechos (aparece no projeto)
+    let ai_name = match cfg.llm_provider.as_str() {
+        "local" => crate::models::by_file("llm", &cfg.llm_local_model)
+            .map(|m| m.name.to_string())
+            .unwrap_or_else(|| cfg.llm_local_model.clone()),
+        "api" => format!("{} (internet)", cfg.llm_api_model),
+        _ => "Sem IA (escolha automática)".to_string(),
+    };
+    app.update(id, true, |p| p.ai_model = ai_name);
     // Estrutura de edição do projeto: muda a duração dos trechos e o pedido à IA
     let structure = if project.structure.is_empty() {
         cfg.structure.clone()

@@ -102,7 +102,7 @@ O KERF cuida sozinho das partes técnicas:
 - **Para ajustar um clipe:** clique em **Ajustar**. Dá para mudar o início, o fim, o título, a estrutura e o texto do meme, e clicar em **Salvar e gerar de novo**.
 - **Para baixar tudo:** use **Baixar todos**.
 - **Música de fundo:** envie suas músicas em **Ajustes → Músicas de fundo** (ou pelo botão **Enviar** na estrutura). Use músicas que você tem direito de usar.
-- **Temas:** em **Ajustes → Aparência**, escolha Neo-brutalista (preto, cinza e branco), Nord brutal ou Skeuomórfico, cada um com modo claro, escuro ou automático. O botão **◐** no topo troca entre claro e escuro.
+- **IA em uso:** aparece sempre no topo (botão azul **IA**) e no quadro **Inteligência artificial** da área de criar. Dá para trocar ali mesmo; se o modelo não estiver no computador, ele é baixado sozinho. Cada vídeo mostra qual IA escolheu os cortes.
 - **Legendas do Clássico:** estilo, posição e tamanho em **Ajustes**.
 - **Marca d'água:** em **Ajustes → Marca d'água**, digite o @ do perfil e escolha a posição.
 - **Quem entende de tecnologia:** encontra outros serviços de IA, a memória de contexto e os argumentos do yt-dlp em **Ajustes → Opções avançadas**.
@@ -156,7 +156,7 @@ Ao enviar uma tag `v*` para o GitHub, o workflow `.github/workflows/release.yml`
 | `src/face.rs` | Detecção de rosto (rustface), quem está falando e caminho suave da câmera |
 | `src/models.rs` | Catálogo e download de modelos |
 | `src/paths.rs` | Pastas de dados e localização das ferramentas em cada sistema |
-| `assets/index.html` | Interface (neo-brutalista, monocromática, claro e escuro) |
+| `assets/index.html` | Interface (neo-brutalista) |
 | `packaging/` | Scripts e arquivos dos pacotes (AppImage, Windows, macOS) |
 
 ## Contribuir
